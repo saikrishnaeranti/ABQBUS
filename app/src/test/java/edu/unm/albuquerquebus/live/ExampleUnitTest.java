@@ -1,4 +1,4 @@
-package edu.unm.albuquerquebus.albuquerquebus;
+package edu.unm.albuquerquebus.live;
 
 import org.junit.Test;
 

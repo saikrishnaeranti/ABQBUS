@@ -2,7 +2,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="edu.unm.albuquerquebus.albuquerquebus.MapsActivity">
+    tools:context="edu.unm.albuquerquebus.live.MapsActivity">
 
 
     <fragment xmlns:android="http://schemas.android.com/apk/res/android"
@@ -10,5 +10,10 @@
         android:name="com.google.android.gms.maps.SupportMapFragment"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
+
+    <fragment android:name="edu.unm.albuquerquebus.live.DestinationRouteDirectionsFragment"
+        android:id="@+id/destination_route_directions_fragment"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
 
 </RelativeLayout>

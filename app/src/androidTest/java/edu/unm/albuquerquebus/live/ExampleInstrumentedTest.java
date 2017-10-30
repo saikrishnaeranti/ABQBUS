@@ -1,4 +1,4 @@
-package edu.unm.albuquerquebus.albuquerquebus;
+package edu.unm.albuquerquebus.live;
 
 import android.content.Context;
 import android.support.test.InstrumentationRegistry;

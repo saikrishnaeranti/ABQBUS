@@ -1,4 +1,4 @@
-package edu.unm.albuquerquebus.albuquerquebus;
+package edu.unm.albuquerquebus.live;
 
 import android.Manifest;
 import android.content.DialogInterface;
@@ -71,7 +71,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                                         MY_LOCATION_REQUEST_CODE);
                             }
                         });
-                return;
+//                return;
             } else {
 
                 // No explanation needed, we can request the permission.
