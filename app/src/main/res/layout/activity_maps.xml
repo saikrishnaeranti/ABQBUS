@@ -11,7 +11,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <fragment android:name="edu.unm.albuquerquebus.live.DestinationRouteDirectionsFragment"
+    <fragment android:name="edu.unm.albuquerquebus.live.fragments.DestinationRouteDirectionsFragment"
         android:id="@+id/destination_route_directions_fragment"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content" />

@@ -46,6 +46,7 @@ import org.json.JSONException;
 import java.util.HashMap;
 import java.util.Map;
 
+import edu.unm.albuquerquebus.live.fragments.DestinationRouteDirectionsFragment;
 import edu.unm.albuquerquebus.live.model.DirectionsTransitModel;
 import edu.unm.albuquerquebus.live.utils.ApiCaller;
 import edu.unm.albuquerquebus.live.utils.Constants;
@@ -319,7 +320,8 @@ public class MainActivity extends AppCompatActivity
         if (requestCode == PLACE_AUTOCOMPLETE_REQUEST_CODE) {
             if (resultCode == RESULT_OK) {
                 Place place = PlaceAutocomplete.getPlace(this, data);
-                mDestinationAddress = place.getAddress().toString();
+                mDestinationAddress = place.getName().toString() + ", " +place.getAddress().toString();
+               String name = place.getName().toString();
                 if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                     // TODO: Consider calling
                     //    ActivityCompat#requestPermissions
@@ -362,9 +364,10 @@ public class MainActivity extends AppCompatActivity
 
                 try {
                     DirectionsTransitModel directionsTransitModel = new DirectionParseJson().parseRoute(response);
-                    if (directionsTransitModel.getEndAddress() == null || directionsTransitModel.getEndAddress().length() == 0) {
+                    /*if (directionsTransitModel.getEndAddress() == null || directionsTransitModel.getEndAddress().length() == 0) {
                         directionsTransitModel.setEndAddress(mDestinationAddress);
-                    }
+                    }*/
+                    directionsTransitModel.setEndAddress(mDestinationAddress);
                     directionsTransitModel.getArrivalTime();
                     if (mDestinationRouteDirectionsFragment != null)
                         mDestinationRouteDirectionsFragment.updateDestinationDetails(directionsTransitModel);

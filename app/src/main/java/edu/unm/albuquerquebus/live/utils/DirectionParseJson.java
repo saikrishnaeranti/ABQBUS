@@ -132,6 +132,7 @@ public class DirectionParseJson {
             individualBusSteps.setBusShortName(transitDetails.getJSONObject("line").getString("short_name"));
             if (transitDetails.has("num_stops"))
             individualBusSteps.setNoOfBusStops(transitDetails.getInt("num_stops"));
+            busRoute.setIndividualBusSteps(individualBusSteps);
         }
 
         return busRoute;

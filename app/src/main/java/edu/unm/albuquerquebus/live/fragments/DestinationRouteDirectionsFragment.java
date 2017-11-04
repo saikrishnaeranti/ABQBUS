@@ -1,4 +1,4 @@
-package edu.unm.albuquerquebus.live;
+package edu.unm.albuquerquebus.live.fragments;
 
 import android.content.Context;
 import android.net.Uri;
@@ -7,7 +7,14 @@ import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
+import java.util.ArrayList;
+
+import edu.unm.albuquerquebus.live.R;
+import edu.unm.albuquerquebus.live.RouteInfo;
+import edu.unm.albuquerquebus.live.model.BusRoute;
 import edu.unm.albuquerquebus.live.model.DirectionsTransitModel;
 
 /**
@@ -18,7 +25,7 @@ import edu.unm.albuquerquebus.live.model.DirectionsTransitModel;
  * Use the {@link DestinationRouteDirectionsFragment#newInstance} factory method to
  * create an instance of this fragment.
  */
-public class DestinationRouteDirectionsFragment extends Fragment  {
+public class DestinationRouteDirectionsFragment extends Fragment {
     // TODO: Rename parameter arguments, choose names that match
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
     private static final String ARG_PARAM1 = "param1";
@@ -29,6 +36,8 @@ public class DestinationRouteDirectionsFragment extends Fragment  {
     private String mParam2;
 
     private OnDestinationRouteDirectionsFragmentInteractionListener mListener;
+    private TextView mDestinationTextView;
+    private LinearLayout mBusLinearLayout;
 
     public DestinationRouteDirectionsFragment() {
         // Required empty public constructor
@@ -65,8 +74,23 @@ public class DestinationRouteDirectionsFragment extends Fragment  {
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
 
+        View view = inflater.inflate(R.layout.route_fragment_layout, container, false);
+        mDestinationTextView = view.findViewById(R.id.destination_text);
+        mDestinationTextView.setSelected(true);
 
-        return inflater.inflate(R.layout.route_fragment_layout, container, false);
+        mBusLinearLayout = view.findViewById(R.id.bus_layout);
+        /*mOrders = new ArrayList<>();
+        mProgressBarLayout = (FrameLayout) getActivity().findViewById(R.id.progress_bar_main_layout);
+        mContentResolver = getActivity().getContentResolver();
+        ProcessRestaurantOrders processRestaurantOrders = new ProcessRestaurantOrders(mActivity, mContentResolver);
+        processRestaurantOrders.execute();
+        mProgressBarLayout = (FrameLayout) getActivity().findViewById(R.id.progress_bar_main_layout);
+        mAdapter = new OrdersCustomAdapter(getActivity(), getChildFragmentManager(), mOrders, mTypeOfList, this);
+        mOrdersListView = (ListView) view.findViewById(R.id.orders_list);
+        mOrdersListView.setAdapter(mAdapter);
+        getLoaderManager().initLoader(LOADER_ID, null, this);*/
+        return view;
+
     }
 
     // TODO: Rename method, update argument and hook method into UI event
@@ -96,7 +120,31 @@ public class DestinationRouteDirectionsFragment extends Fragment  {
 
     public void updateDestinationDetails(DirectionsTransitModel directionsTransitModel) {
 
+        mDestinationTextView.setText(directionsTransitModel.getEndAddress());
+        addBusesInLayout(directionsTransitModel);
+        addWalkingDistanceToBusStopInLayout(directionsTransitModel);
+    }
 
+    private void addWalkingDistanceToBusStopInLayout(DirectionsTransitModel directionsTransitModel) {
+
+
+    }
+
+    private void addBusesInLayout(DirectionsTransitModel directionsTransitModel) {
+
+        mBusLinearLayout.removeAllViews();
+        ArrayList<RouteInfo> listOfRoutes = directionsTransitModel.getmListOfRoutes();
+
+        for (int i = 0; i < listOfRoutes.size(); i++) {
+            if(listOfRoutes.get(i).transitMode() == "TRANSIT"){
+                BusRoute busRoute = (BusRoute) listOfRoutes.get(i);
+                LayoutInflater inflater = getActivity().getLayoutInflater();
+                View view = inflater.inflate(R.layout.each_bus_layout, null);
+                TextView busNoTextView = view.findViewById(R.id.bus_no);
+                busNoTextView.setText(busRoute.getIndividualBusSteps().getBusShortName());
+                mBusLinearLayout.addView(view);
+            }
+        }
     }
 
     /**
