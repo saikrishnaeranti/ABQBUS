@@ -2,6 +2,8 @@ package edu.unm.albuquerquebus.live.model;
 
 import com.google.android.gms.maps.model.LatLng;
 
+import java.util.ArrayList;
+
 import edu.unm.albuquerquebus.live.RouteInfo;
 
 /**
@@ -15,6 +17,7 @@ public abstract class Route implements RouteInfo {
     private LatLng startLocation = null;
     private String htmlInstructions = null;
     private String polylinePoints = null;
+    private ArrayList<LatLng> polylineLatLngPoints;
 
 
 
@@ -64,5 +67,13 @@ public abstract class Route implements RouteInfo {
 
     public void setPolylinePoints(String polylinePoints) {
         this.polylinePoints = polylinePoints;
+    }
+
+    public ArrayList<LatLng> getPolylineLatLngPoints() {
+        return polylineLatLngPoints;
+    }
+
+    public void setPolylineLatLngPoints(ArrayList<LatLng> polylineLatLngPoints) {
+        this.polylineLatLngPoints = polylineLatLngPoints;
     }
 }

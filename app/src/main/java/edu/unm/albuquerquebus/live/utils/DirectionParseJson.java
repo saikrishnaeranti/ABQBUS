@@ -8,6 +8,9 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import edu.unm.albuquerquebus.live.RouteInfo;
 import edu.unm.albuquerquebus.live.model.BusRoute;
 import edu.unm.albuquerquebus.live.model.DirectionsTransitModel;
@@ -32,6 +35,7 @@ public class DirectionParseJson {
         DirectionsTransitModel directionsTransitModel = new DirectionsTransitModel();
 
         JSONObject legs = route.getJSONArray("routes").getJSONObject(0).getJSONArray("legs").getJSONObject(0);
+        JSONObject overviewPolyline = route.getJSONArray("routes").getJSONObject(0).getJSONObject("overview_polyline");
 
         if (legs.has("arrival_time"))
             directionsTransitModel.setArrivalTime(legs.getJSONObject("arrival_time").getLong("value"));
@@ -59,9 +63,13 @@ public class DirectionParseJson {
             directionsTransitModel.setStartLocation(new LatLng(legs.getJSONObject("start_location").getDouble("lat"),
                 legs.getJSONObject("start_location").getDouble("lng")));
 
+        if (overviewPolyline.has("points")) {
+            directionsTransitModel.setPolylinePointsString(overviewPolyline.getString("points"));
+            directionsTransitModel.setPolylineLatLngPoints(decodePoly(directionsTransitModel.getPolylinePointsString()));
+        }
         if(legs.has("steps")) {
             JSONArray steps = legs.getJSONArray("steps");
-
+            int noOfBuses = 0;
             for (int j = 0; j < steps.length(); j++) {
 
                 JSONObject step = steps.getJSONObject(j);
@@ -70,13 +78,54 @@ public class DirectionParseJson {
                     directionsTransitModel.getmListOfRoutes().add(getDetailsOfWalkingRoute(step, false));
 
                 } else if (step.getString("travel_mode").equalsIgnoreCase("TRANSIT")) {
+                    noOfBuses++;
                     directionsTransitModel.getmListOfRoutes().add(getDetailsOfBusRoute(step));
                 }
 
 
             }
+            directionsTransitModel.setTotalNumberOfBuses(noOfBuses);
+
         }
         return directionsTransitModel;
+    }
+
+    /**
+     * Method Courtesy :
+     * jeffreysambells.com/2010/05/27
+     * /decoding-polylines-from-google-maps-direction-api-with-java
+     */
+    private ArrayList<LatLng> decodePoly(String encoded) {
+
+        ArrayList<LatLng> poly = new ArrayList<LatLng>();
+        int index = 0, len = encoded.length();
+        int lat = 0, lng = 0;
+
+        while (index < len) {
+            int b, shift = 0, result = 0;
+            do {
+                b = encoded.charAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+            lat += dlat;
+
+            shift = 0;
+            result = 0;
+            do {
+                b = encoded.charAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+            lng += dlng;
+
+            LatLng p = new LatLng((((double) lat / 1E5)),
+                    (((double) lng / 1E5)));
+            poly.add(p);
+        }
+        return poly;
     }
 
     private RouteInfo getDetailsOfBusRoute(JSONObject step) throws JSONException {
@@ -98,8 +147,11 @@ public class DirectionParseJson {
 
         if (step.has("html_instructions"))
         busRoute.setHtmlInstructions(step.getString("html_instructions"));
-        if (step.has("polyline"))
-        busRoute.setHtmlInstructions(step.getJSONObject("polyline").getString("points"));
+        if (step.has("polyline")) {
+            busRoute.setPolylinePoints(step.getJSONObject("polyline").getString("points"));
+            busRoute.setPolylineLatLngPoints(decodePoly(busRoute.getPolylinePoints()));
+        }
+
 
         if (step.has("transit_details")) {
             JSONObject transitDetails = step.getJSONObject("transit_details");
@@ -156,8 +208,11 @@ public class DirectionParseJson {
 
         if (step.has("html_instructions"))
             walkingRoute.setHtmlInstructions(step.getString("html_instructions"));
-        if (step.has("polyline"))
-            walkingRoute.setHtmlInstructions(step.getJSONObject("polyline").getString("points"));
+        if (step.has("polyline")) {
+            walkingRoute.setPolylinePoints(step.getJSONObject("polyline").getString("points"));
+            walkingRoute.setPolylineLatLngPoints(decodePoly(walkingRoute.getPolylinePoints()));
+        }
+
         walkingRoute.setIndividualRoute(individualRoute);
 
         if (!individualRoute) {

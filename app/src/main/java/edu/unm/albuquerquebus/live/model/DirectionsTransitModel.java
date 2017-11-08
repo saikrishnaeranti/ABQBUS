@@ -37,7 +37,18 @@ public class DirectionsTransitModel {
 
     //polyline
     private String polylinePointsString;
+    private ArrayList<LatLng> polylineLatLngPoints;
 
+    //Number of Buses
+    private int mTotalNumberOfBuses;
+
+    public int getTotalNumberOfBuses() {
+        return mTotalNumberOfBuses;
+    }
+
+    public void setTotalNumberOfBuses(int totalNumberOfBuses) {
+        mTotalNumberOfBuses = totalNumberOfBuses;
+    }
 
     public DirectionsTransitModel() {
         mListOfRoutes = new ArrayList<>();
@@ -131,5 +142,14 @@ public class DirectionsTransitModel {
 
     public void setEndAddress(String endAddress) {
         this.endAddress = endAddress;
+    }
+
+
+    public ArrayList<LatLng> getPolylineLatLngPoints() {
+        return polylineLatLngPoints;
+    }
+
+    public void setPolylineLatLngPoints(ArrayList<LatLng> polylineLatLngPoints) {
+        this.polylineLatLngPoints = polylineLatLngPoints;
     }
 }

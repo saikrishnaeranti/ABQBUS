@@ -4,6 +4,7 @@ import android.Manifest;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.location.Location;
 import android.net.Uri;
 import android.os.Bundle;
@@ -39,15 +40,20 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.PolygonOptions;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.tasks.OnSuccessListener;
 
 import org.json.JSONException;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
 import edu.unm.albuquerquebus.live.fragments.DestinationRouteDirectionsFragment;
 import edu.unm.albuquerquebus.live.model.DirectionsTransitModel;
+import edu.unm.albuquerquebus.live.model.WalkingRoute;
 import edu.unm.albuquerquebus.live.utils.ApiCaller;
 import edu.unm.albuquerquebus.live.utils.Constants;
 import edu.unm.albuquerquebus.live.utils.DirectionParseJson;
@@ -79,6 +85,11 @@ public class MainActivity extends AppCompatActivity
     private SupportMapFragment mMapFragment;
     private String mDestinationAddress;
     private DestinationRouteDirectionsFragment mDestinationRouteDirectionsFragment;
+    private Polyline mRoutePolyline;
+
+
+    private DirectionsTransitModel mPresentDirectionModelWithWalking;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -334,14 +345,11 @@ public class MainActivity extends AppCompatActivity
                 }
                 Location lastKnowLocation = LocationServices.FusedLocationApi
                         .getLastLocation(mGoogleApiClient);
-                if (mLastKnownLocation != null) {
-                    getRouteOfBus(mLastKnownLocation, place.getLatLng());
-
-                    Log.d("MAIN Class data", "Last Location is known");
-                } else {
-                    getRouteOfBus(new LatLng(lastKnowLocation.getLatitude(), lastKnowLocation.getLongitude()), place.getLatLng());
+                if (mLastKnownLocation == null) {
+                    mLastKnownLocation = new LatLng(lastKnowLocation.getLatitude(), lastKnowLocation.getLongitude());
 
                 }
+                getRouteOfBus(mLastKnownLocation, place.getLatLng());
 
                 Log.i(TAG, "Place: " + place.getName());
 
@@ -369,8 +377,19 @@ public class MainActivity extends AppCompatActivity
                     }*/
                     directionsTransitModel.setEndAddress(mDestinationAddress);
                     directionsTransitModel.getArrivalTime();
+                    getTimeForBicycleForBusStop(directionsTransitModel);
                     if (mDestinationRouteDirectionsFragment != null)
                         mDestinationRouteDirectionsFragment.updateDestinationDetails(directionsTransitModel);
+
+                    if (mRoutePolyline != null) {
+                        mRoutePolyline.remove();
+                    }
+                    mRoutePolyline = mMap.addPolyline(new PolylineOptions().addAll(directionsTransitModel.getPolylineLatLngPoints())
+                            .width(5)
+                            .color(Color.RED));
+
+
+                    //mMap.addPolygon(new PolygonOptions());
                 } catch (JSONException e) {
                     e.printStackTrace();
                 }
@@ -389,6 +408,54 @@ public class MainActivity extends AppCompatActivity
         parameters.put(Constants.DESTINATION, destinationLatLng.latitude + "," + destinationLatLng.longitude);
         parameters.put(Constants.KEY, getResources().getString(R.string.google_maps_key));
         parameters.put(Constants.MODE, "transit");
+        //parameters.put(Constants.DEPART_TIME,"1507129200000");
+        apiCaller.makeStringRequest(MainActivity.this, Request.Method.GET, Constants.GET_MAP_URL, parameters);
+    }
+
+    private void getTimeForBicycleForBusStop(DirectionsTransitModel directionsTransitModel) {
+        ApiCaller apiCaller = new ApiCaller();
+        apiCaller.setAfterApiCallResponse(new ApiCaller.AfterApiCallResponse() {
+            @Override
+            public void successResponse(String response, String url) {
+
+                try {
+                    DirectionsTransitModel directionsTransitModel = new DirectionParseJson().parseRoute(response);
+                    if (mDestinationRouteDirectionsFragment != null)
+                        mDestinationRouteDirectionsFragment.updateBicycleTimeDetails(directionsTransitModel);
+
+                    /*if (directionsTransitModel.getEndAddress() == null || directionsTransitModel.getEndAddress().length() == 0) {
+                        directionsTransitModel.setEndAddress(mDestinationAddress);
+                    }*/
+                   /* directionsTransitModel.setEndAddress(mDestinationAddress);
+                    directionsTransitModel.getArrivalTime();
+                    if (mDestinationRouteDirectionsFragment != null)
+                        mDestinationRouteDirectionsFragment.updateDestinationDetails(directionsTransitModel);*/
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+                Log.d("MAIN Class data", response);
+            }
+
+            @Override
+            public void errorResponse(VolleyError error, String url) {
+
+            }
+
+
+        });
+        ArrayList<RouteInfo> routeInfoArrayList = directionsTransitModel.getmListOfRoutes();
+        WalkingRoute walkingRoute = null;
+        for (int i = 0; i < routeInfoArrayList.size(); i++) {
+            if (routeInfoArrayList.get(i).transitMode().equalsIgnoreCase("WALKING")) {
+                walkingRoute = (WalkingRoute) routeInfoArrayList.get(i);
+                break;
+            }
+        }
+        Map<String, String> parameters = new HashMap<>();
+        parameters.put(Constants.ORIGIN, mLastKnownLocation.latitude + "," + mLastKnownLocation.longitude);
+        parameters.put(Constants.DESTINATION, walkingRoute.getEndLocation().latitude + "," + walkingRoute.getEndLocation().longitude);
+        parameters.put(Constants.KEY, getResources().getString(R.string.google_maps_key));
+        parameters.put(Constants.MODE, "BICYCLING");
         //parameters.put(Constants.DEPART_TIME,"1507129200000");
         apiCaller.makeStringRequest(MainActivity.this, Request.Method.GET, Constants.GET_MAP_URL, parameters);
     }

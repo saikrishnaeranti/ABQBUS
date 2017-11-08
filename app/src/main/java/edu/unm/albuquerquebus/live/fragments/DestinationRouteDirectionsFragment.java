@@ -16,6 +16,7 @@ import edu.unm.albuquerquebus.live.R;
 import edu.unm.albuquerquebus.live.RouteInfo;
 import edu.unm.albuquerquebus.live.model.BusRoute;
 import edu.unm.albuquerquebus.live.model.DirectionsTransitModel;
+import edu.unm.albuquerquebus.live.model.WalkingRoute;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -38,6 +39,8 @@ public class DestinationRouteDirectionsFragment extends Fragment {
     private OnDestinationRouteDirectionsFragmentInteractionListener mListener;
     private TextView mDestinationTextView;
     private LinearLayout mBusLinearLayout;
+    private TextView mWalkTimeTextView;
+    private TextView mBicycleTimeTextView;
 
     public DestinationRouteDirectionsFragment() {
         // Required empty public constructor
@@ -79,6 +82,10 @@ public class DestinationRouteDirectionsFragment extends Fragment {
         mDestinationTextView.setSelected(true);
 
         mBusLinearLayout = view.findViewById(R.id.bus_layout);
+
+        mWalkTimeTextView = view.findViewById(R.id.walk_time);
+
+        mBicycleTimeTextView = view.findViewById(R.id.bicycle_time);
         /*mOrders = new ArrayList<>();
         mProgressBarLayout = (FrameLayout) getActivity().findViewById(R.id.progress_bar_main_layout);
         mContentResolver = getActivity().getContentResolver();
@@ -125,7 +132,31 @@ public class DestinationRouteDirectionsFragment extends Fragment {
         addWalkingDistanceToBusStopInLayout(directionsTransitModel);
     }
 
+    public void updateBicycleTimeDetails(DirectionsTransitModel directionsTransitModel) {
+
+        long temp = directionsTransitModel.getDuration();
+        int minutes = (int) (temp / 60);
+        minutes++;
+        mBicycleTimeTextView.setText(String.format("%d Min", minutes));
+
+    }
+
     private void addWalkingDistanceToBusStopInLayout(DirectionsTransitModel directionsTransitModel) {
+
+        ArrayList<RouteInfo> routeInfoArrayList = directionsTransitModel.getmListOfRoutes();
+        WalkingRoute walkingRoute = null;
+        for (int i = 0; i < routeInfoArrayList.size(); i++) {
+            if (routeInfoArrayList.get(i).transitMode().equalsIgnoreCase("WALKING")) {
+                walkingRoute = (WalkingRoute) routeInfoArrayList.get(i);
+                break;
+            }
+        }
+        if (walkingRoute != null) {
+            long temp = walkingRoute.getDuration();
+            int minutes = (int) (temp / 60);
+            minutes++;
+            mWalkTimeTextView.setText(String.format("%d Min", minutes));
+        }
 
 
     }
@@ -134,17 +165,25 @@ public class DestinationRouteDirectionsFragment extends Fragment {
 
         mBusLinearLayout.removeAllViews();
         ArrayList<RouteInfo> listOfRoutes = directionsTransitModel.getmListOfRoutes();
-
+        int busesAdded = 0;
         for (int i = 0; i < listOfRoutes.size(); i++) {
-            if(listOfRoutes.get(i).transitMode() == "TRANSIT"){
+            if (listOfRoutes.get(i).transitMode() == "TRANSIT") {
+                busesAdded++;
+
                 BusRoute busRoute = (BusRoute) listOfRoutes.get(i);
                 LayoutInflater inflater = getActivity().getLayoutInflater();
                 View view = inflater.inflate(R.layout.each_bus_layout, null);
                 TextView busNoTextView = view.findViewById(R.id.bus_no);
                 busNoTextView.setText(busRoute.getIndividualBusSteps().getBusShortName());
                 mBusLinearLayout.addView(view);
+                if (busesAdded < directionsTransitModel.getTotalNumberOfBuses()) {
+                    View arrowView = inflater.inflate(R.layout.bus_to_bus_layout, null);
+                    mBusLinearLayout.addView(arrowView);
+                }
+
             }
         }
+
     }
 
     /**

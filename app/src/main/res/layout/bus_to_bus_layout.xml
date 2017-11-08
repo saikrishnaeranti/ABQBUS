@@ -3,23 +3,12 @@
               android:layout_width="wrap_content"
               android:layout_height="wrap_content"
               android:orientation="vertical"
-              android:padding="4dp">
+              android:padding="2dp">
 
 
     <ImageView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:contentDescription="@string/bus_icon"
-        android:src="@drawable/ic_action_directions_bus"/>
-
-    <TextView
-        android:id="@+id/bus_no"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_gravity="center_horizontal"
-        android:gravity="center"
-        android:text="66"
-        android:textAlignment="center"/>
-
-
+        android:src="@drawable/ic_action_keyboard_arrow_right"/>
 </LinearLayout>
