@@ -1,4 +1,4 @@
-package edu.unm.albuquerquebus.live;
+package edu.unm.albuquerquebus.live.interfaces;
 
 import com.google.android.gms.maps.model.LatLng;
 

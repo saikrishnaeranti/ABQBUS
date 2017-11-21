@@ -1,9 +1,5 @@
 package edu.unm.albuquerquebus.live.model;
 
-import com.google.android.gms.maps.model.LatLng;
-
-import edu.unm.albuquerquebus.live.RouteInfo;
-
 /**
  * Created by saikrishna on 10/28/17.
  */

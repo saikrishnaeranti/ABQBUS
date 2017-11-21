@@ -13,7 +13,7 @@ import android.widget.TextView;
 import java.util.ArrayList;
 
 import edu.unm.albuquerquebus.live.R;
-import edu.unm.albuquerquebus.live.RouteInfo;
+import edu.unm.albuquerquebus.live.interfaces.RouteInfo;
 import edu.unm.albuquerquebus.live.model.BusRoute;
 import edu.unm.albuquerquebus.live.model.DirectionsTransitModel;
 import edu.unm.albuquerquebus.live.model.WalkingRoute;

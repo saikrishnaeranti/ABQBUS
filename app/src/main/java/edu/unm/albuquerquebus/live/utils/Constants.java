@@ -25,6 +25,7 @@ public class Constants {
     public static final String GCM_TOKEN = "gcm_token";
     public static final String GET_ROUTE_URL = "http://data.cabq.gov/transit/realtime/route/route10.kml";
     public static final String GET_MAP_URL = "https://maps.googleapis.com/maps/api/directions/json";
+    public static final String GET_SNAP_TO_ROAD_URL = "https://roads.googleapis.com/v1/snapToRoads";
     public static final String GET_MAP_TEMP_URL = "https://maps.googleapis.com/maps/api/directions/json?origin=Toronto&destination=Montreal&key=";
 
     //Map Parameters
@@ -37,4 +38,7 @@ public class Constants {
 
 
     public static final String DEPART_TIME = "departure_time";
+
+    public static final String INTERPOLATE = "interpolate";
+    public static final String PATH = "path";
 }

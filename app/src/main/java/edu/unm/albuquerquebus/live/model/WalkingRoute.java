@@ -2,7 +2,7 @@ package edu.unm.albuquerquebus.live.model;
 
 import java.util.ArrayList;
 
-import edu.unm.albuquerquebus.live.RouteInfo;
+import edu.unm.albuquerquebus.live.interfaces.RouteInfo;
 
 /**
  * Created by saikrishna on 10/28/17.

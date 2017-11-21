@@ -39,8 +39,11 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.Dot;
+import com.google.android.gms.maps.model.Gap;
+import com.google.android.gms.maps.model.JointType;
 import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.PolygonOptions;
+import com.google.android.gms.maps.model.PatternItem;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.tasks.OnSuccessListener;
@@ -48,10 +51,14 @@ import com.google.android.gms.tasks.OnSuccessListener;
 import org.json.JSONException;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import edu.unm.albuquerquebus.live.fragments.DestinationRouteDirectionsFragment;
+import edu.unm.albuquerquebus.live.interfaces.RouteInfo;
+import edu.unm.albuquerquebus.live.model.BusRoute;
 import edu.unm.albuquerquebus.live.model.DirectionsTransitModel;
 import edu.unm.albuquerquebus.live.model.WalkingRoute;
 import edu.unm.albuquerquebus.live.utils.ApiCaller;
@@ -85,7 +92,9 @@ public class MainActivity extends AppCompatActivity
     private SupportMapFragment mMapFragment;
     private String mDestinationAddress;
     private DestinationRouteDirectionsFragment mDestinationRouteDirectionsFragment;
-    private Polyline mRoutePolyline;
+    private List<Polyline> mListOfPolyLines;
+
+    private ArrayList<LatLng> mCurrentDirectionLatLngs;
 
 
     private DirectionsTransitModel mPresentDirectionModelWithWalking;
@@ -371,7 +380,7 @@ public class MainActivity extends AppCompatActivity
             public void successResponse(String response, String url) {
 
                 try {
-                    DirectionsTransitModel directionsTransitModel = new DirectionParseJson().parseRoute(response);
+                    DirectionsTransitModel directionsTransitModel = new DirectionParseJson().parseRoute(response, MainActivity.this);
                     /*if (directionsTransitModel.getEndAddress() == null || directionsTransitModel.getEndAddress().length() == 0) {
                         directionsTransitModel.setEndAddress(mDestinationAddress);
                     }*/
@@ -381,12 +390,42 @@ public class MainActivity extends AppCompatActivity
                     if (mDestinationRouteDirectionsFragment != null)
                         mDestinationRouteDirectionsFragment.updateDestinationDetails(directionsTransitModel);
 
-                    if (mRoutePolyline != null) {
-                        mRoutePolyline.remove();
+                    if (mListOfPolyLines != null) {
+
+                        for (Polyline polyline :
+                                mListOfPolyLines) {
+                            polyline.remove();
+                        }
+                        mListOfPolyLines = null;
                     }
-                    mRoutePolyline = mMap.addPolyline(new PolylineOptions().addAll(directionsTransitModel.getPolylineLatLngPoints())
-                            .width(5)
-                            .color(Color.RED));
+                    mListOfPolyLines = new ArrayList<>();
+                    for (RouteInfo routeInfo :
+                            directionsTransitModel.getmListOfRoutes()) {
+                        if (routeInfo.transitMode() == "TRANSIT") {
+                            BusRoute busRoute = ((BusRoute) routeInfo);
+                            ArrayList<LatLng> latLngs = busRoute.getPolylineLatLngPoints();
+                            Polyline polyline = mMap.addPolyline(new PolylineOptions().addAll(latLngs).width(7).color(Color.parseColor(busRoute.getIndividualBusSteps().getBusColor())));
+                            mListOfPolyLines.add(polyline);
+                        } else {
+                            ArrayList<LatLng> latLngs = ((WalkingRoute) routeInfo).getPolylineLatLngPoints();
+                            Polyline polyline = mMap.addPolyline(new PolylineOptions().addAll(latLngs).width(7).color(Color.BLUE).pattern(Arrays.<PatternItem>asList(
+                                    new Dot(), new Gap(20))));
+                            polyline.setJointType(JointType.ROUND);
+                            mListOfPolyLines.add(polyline);
+
+                        }
+                    }
+                    ArrayList<LatLng> latLngs = getListOfLatLngsOfRoute(directionsTransitModel);
+                    String latLngString = latLngs.get(0).toString();
+                    String latLngString1 = latLngs.get(1).toString();
+                    Log.i(TAG, "latLngString: " + latLngString);
+                    Log.i(TAG, "latLngString1: " + latLngString1);
+                    mCurrentDirectionLatLngs = new ArrayList<>();
+                    //getSnapPointsOfRoute(latLngs);
+
+//                    mRoutePolyline = mMap.addPolyline(new PolylineOptions().addAll(directionsTransitModel.getPolylineLatLngPoints())
+//                            .width(5)
+//                            .color(Color.RED));
 
 
                     //mMap.addPolygon(new PolygonOptions());
@@ -395,6 +434,7 @@ public class MainActivity extends AppCompatActivity
                 }
                 Log.d("MAIN Class data", response);
             }
+
 
             @Override
             public void errorResponse(VolleyError error, String url) {
@@ -412,6 +452,88 @@ public class MainActivity extends AppCompatActivity
         apiCaller.makeStringRequest(MainActivity.this, Request.Method.GET, Constants.GET_MAP_URL, parameters);
     }
 
+    private void getSnapPointsOfRoute(final ArrayList<LatLng> latLngs) {
+
+        ApiCaller apiCaller = new ApiCaller();
+        apiCaller.setAfterApiCallResponse(new ApiCaller.AfterApiCallResponse() {
+
+            @Override
+            public void successResponse(String response, String url) {
+                Log.i(TAG, "SNAP TO Road Response: " + response);
+                try {
+                    ArrayList<LatLng> tempLatLngsList = new DirectionParseJson().getListOfLatLngs(response);
+                    mCurrentDirectionLatLngs.addAll(tempLatLngsList);
+                    if (mCurrentDirectionLatLngs.size() != latLngs.size()) {
+                        getSnapPointsOfRoute(latLngs);
+                    } else {
+                        assignPointsBackToDirectionModel();
+                    }
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+
+
+            }
+
+            @Override
+            public void errorResponse(VolleyError error, String url) {
+
+            }
+        });
+
+        Map<String, String> parameters = new HashMap<>();
+        parameters.put(Constants.INTERPOLATE, String.valueOf(true));
+        parameters.put(Constants.KEY, getResources().getString(R.string.google_maps_key));
+        String latLngStringParameter = "";
+
+        for (int i = mCurrentDirectionLatLngs.size() - 1; i < mCurrentDirectionLatLngs.size() + 100 && i < latLngs.size(); i++) {
+            if (i < 0) {
+                i = 0;
+            }
+            LatLng latLng = latLngs.get(i);
+            latLngStringParameter = latLngStringParameter.concat(String.valueOf(latLng.latitude));
+            latLngStringParameter = latLngStringParameter.concat(",");
+            latLngStringParameter = latLngStringParameter.concat(String.valueOf(latLng.longitude));
+            if (i != mCurrentDirectionLatLngs.size() + 99) {
+                latLngStringParameter = latLngStringParameter.concat("|");
+            }
+
+        }
+        String finalUrl = Constants.GET_SNAP_TO_ROAD_URL;
+        finalUrl += "?";
+        finalUrl += Constants.INTERPOLATE + "=true";
+        finalUrl += "&";
+        finalUrl += Constants.KEY + "=" + getResources().getString(R.string.google_maps_key);
+        finalUrl += "&";
+        finalUrl += Constants.PATH + "=" + latLngStringParameter;
+
+        parameters.put(Constants.PATH, latLngStringParameter);
+        apiCaller.makeStringRequest(MainActivity.this, Request.Method.GET, finalUrl, null);
+
+    }
+
+    private void assignPointsBackToDirectionModel() {
+
+    }
+
+    private ArrayList<LatLng> getListOfLatLngsOfRoute(DirectionsTransitModel directionsTransitModel) {
+        ArrayList<LatLng> latLngArrayList = new ArrayList<>();
+
+        for (RouteInfo routeInfo :
+                directionsTransitModel.getmListOfRoutes()) {
+            if (routeInfo.transitMode() == "TRANSIT") {
+                BusRoute busRoute = ((BusRoute) routeInfo);
+                latLngArrayList.addAll(busRoute.getPolylineLatLngPoints());
+            } else {
+                latLngArrayList.addAll(((WalkingRoute) routeInfo).getPolylineLatLngPoints());
+            }
+
+
+        }
+
+        return latLngArrayList;
+    }
+
     private void getTimeForBicycleForBusStop(DirectionsTransitModel directionsTransitModel) {
         ApiCaller apiCaller = new ApiCaller();
         apiCaller.setAfterApiCallResponse(new ApiCaller.AfterApiCallResponse() {
@@ -419,7 +541,7 @@ public class MainActivity extends AppCompatActivity
             public void successResponse(String response, String url) {
 
                 try {
-                    DirectionsTransitModel directionsTransitModel = new DirectionParseJson().parseRoute(response);
+                    DirectionsTransitModel directionsTransitModel = new DirectionParseJson().parseRoute(response, MainActivity.this);
                     if (mDestinationRouteDirectionsFragment != null)
                         mDestinationRouteDirectionsFragment.updateBicycleTimeDetails(directionsTransitModel);
 

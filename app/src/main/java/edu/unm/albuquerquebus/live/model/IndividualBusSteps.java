@@ -21,6 +21,7 @@ public class IndividualBusSteps {
 
     private String busName;
     private String busShortName;
+    private String busColor;
     private int noOfBusStops;
 
     public LatLng getArrivalStopLocation() {
@@ -101,5 +102,13 @@ public class IndividualBusSteps {
 
     public void setNoOfBusStops(int noOfBusStops) {
         this.noOfBusStops = noOfBusStops;
+    }
+
+    public String getBusColor() {
+        return busColor;
+    }
+
+    public void setBusColor(String busColor) {
+        this.busColor = busColor;
     }
 }

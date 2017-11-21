@@ -1,7 +1,10 @@
 package edu.unm.albuquerquebus.live.utils;
 
+import android.app.Activity;
 import android.util.Log;
 
+import com.android.volley.Request;
+import com.android.volley.VolleyError;
 import com.google.android.gms.maps.model.LatLng;
 
 import org.json.JSONArray;
@@ -9,9 +12,9 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
-import java.util.List;
 
-import edu.unm.albuquerquebus.live.RouteInfo;
+import edu.unm.albuquerquebus.live.R;
+import edu.unm.albuquerquebus.live.interfaces.RouteInfo;
 import edu.unm.albuquerquebus.live.model.BusRoute;
 import edu.unm.albuquerquebus.live.model.DirectionsTransitModel;
 import edu.unm.albuquerquebus.live.model.IndividualBusSteps;
@@ -23,13 +26,15 @@ import edu.unm.albuquerquebus.live.model.WalkingRoute;
 
 public class DirectionParseJson {
 
+    private static final String TAG = DirectionParseJson.class.getSimpleName();
+
     // Parse route from Google Directions API response
     // Return route object corresponding to response provided by Google Directions API
     /*To complete this task you must implement the parseRoute method specified in the GoogleDirectionsParser class.
      This method must produce a BusRoute object that contains a WalkingRoute object for each leg found in the JSON response.
      Each WalkingRoute object must contain a LatLng point for each point in each step of the leg.
       */
-    public DirectionsTransitModel parseRoute(java.lang.String response)
+    public DirectionsTransitModel parseRoute(java.lang.String response, Activity activity)
             throws org.json.JSONException {
         JSONObject route = new JSONObject(response);
         DirectionsTransitModel directionsTransitModel = new DirectionsTransitModel();
@@ -79,12 +84,14 @@ public class DirectionParseJson {
 
                 } else if (step.getString("travel_mode").equalsIgnoreCase("TRANSIT")) {
                     noOfBuses++;
-                    directionsTransitModel.getmListOfRoutes().add(getDetailsOfBusRoute(step));
+                    directionsTransitModel.getmListOfRoutes().add(getDetailsOfBusRoute(step, activity));
                 }
 
 
             }
             directionsTransitModel.setTotalNumberOfBuses(noOfBuses);
+            Log.i(TAG, "noOfBuses: " + noOfBuses);
+
 
         }
         return directionsTransitModel;
@@ -128,7 +135,62 @@ public class DirectionParseJson {
         return poly;
     }
 
-    private RouteInfo getDetailsOfBusRoute(JSONObject step) throws JSONException {
+    private void getSnapPointsOfRoute(final Activity activity, final BusRoute busRoute) {
+        ArrayList<LatLng> latLngs = busRoute.getPolylineLatLngPoints();
+        Log.i(TAG, "latLngs size: " + latLngs.size());
+        ApiCaller apiCaller = new ApiCaller();
+        apiCaller.setAfterApiCallResponse(new ApiCaller.AfterApiCallResponse() {
+
+            @Override
+            public void successResponse(String response, String url) {
+                //Log.i(TAG, "SNAP TO Road Response: " +response);
+                try {
+                    ArrayList<LatLng> tempLatLngsList = new DirectionParseJson().getListOfLatLngs(response);
+                    busRoute.setPolylineLatLngPoints(tempLatLngsList);
+
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+
+
+            }
+
+            @Override
+            public void errorResponse(VolleyError error, String url) {
+
+                error.printStackTrace();
+            }
+        });
+
+
+        String latLngStringParameter = "";
+
+        for (int i = 0; i < latLngs.size() && i < latLngs.size(); i++) {
+
+            LatLng latLng = latLngs.get(i);
+            latLngStringParameter = latLngStringParameter.concat(String.valueOf(latLng.latitude));
+            latLngStringParameter = latLngStringParameter.concat(",");
+            latLngStringParameter = latLngStringParameter.concat(String.valueOf(latLng.longitude));
+            if (i != latLngs.size() - 1) {
+                latLngStringParameter = latLngStringParameter.concat("|");
+            }
+
+        }
+        String finalUrl = Constants.GET_SNAP_TO_ROAD_URL;
+        finalUrl += "?";
+        finalUrl += Constants.INTERPOLATE + "=true";
+        finalUrl += "&";
+        finalUrl += Constants.KEY + "=" + activity.getResources().getString(R.string.google_maps_key);
+        finalUrl += "&";
+        finalUrl += Constants.PATH + "=" + latLngStringParameter;
+
+
+        apiCaller.makeStringRequest(activity, Request.Method.GET, finalUrl, null);
+
+    }
+
+
+    private RouteInfo getDetailsOfBusRoute(JSONObject step, Activity activity) throws JSONException {
         BusRoute busRoute = new BusRoute();
 
         if (step.has("distance"))
@@ -150,6 +212,7 @@ public class DirectionParseJson {
         if (step.has("polyline")) {
             busRoute.setPolylinePoints(step.getJSONObject("polyline").getString("points"));
             busRoute.setPolylineLatLngPoints(decodePoly(busRoute.getPolylinePoints()));
+            //getSnapPointsOfRoute(activity,busRoute);
         }
 
 
@@ -178,14 +241,22 @@ public class DirectionParseJson {
 
             if (transitDetails.has("headsign"))
             individualBusSteps.setHeadSign(transitDetails.getString("headsign"));
-            if (transitDetails.has("line"))
-            individualBusSteps.setBusName(transitDetails.getJSONObject("line").getString("name"));
-            if (transitDetails.has("line"))
-            individualBusSteps.setBusShortName(transitDetails.getJSONObject("line").getString("short_name"));
+            if (transitDetails.has("line")) {
+                if (transitDetails.getJSONObject("line").has("name"))
+                    individualBusSteps.setBusName(transitDetails.getJSONObject("line").getString("name"));
+                if (transitDetails.getJSONObject("line").has("short_name"))
+                    individualBusSteps.setBusShortName(transitDetails.getJSONObject("line").getString("short_name"));
+                if (transitDetails.getJSONObject("line").has("color"))
+                    individualBusSteps.setBusColor(transitDetails.getJSONObject("line").getString("color"));
+
+
+            }
+
             if (transitDetails.has("num_stops"))
             individualBusSteps.setNoOfBusStops(transitDetails.getInt("num_stops"));
             busRoute.setIndividualBusSteps(individualBusSteps);
         }
+
 
         return busRoute;
     }
@@ -228,4 +299,21 @@ public class DirectionParseJson {
         return walkingRoute;
     }
 
+    public ArrayList<LatLng> getListOfLatLngs(String response) throws JSONException {
+        ArrayList<LatLng> latLngsList = new ArrayList<>();
+        JSONObject responseJsonObject = new JSONObject(response);
+
+        if (responseJsonObject.has("snappedPoints")) {
+
+            JSONArray snapPointJsonArray = responseJsonObject.getJSONArray("snappedPoints");
+            for (int j = 0; j < snapPointJsonArray.length(); j++) {
+                JSONObject pointJsonObject = snapPointJsonArray.getJSONObject(j);
+                JSONObject pointLocationJsonObject = pointJsonObject.getJSONObject("location");
+                latLngsList.add(new LatLng(pointLocationJsonObject.getDouble("latitude"), pointLocationJsonObject.getDouble("longitude")));
+
+            }
+        }
+
+        return latLngsList;
+    }
 }
