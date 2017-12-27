@@ -255,6 +255,8 @@ public class DirectionParseJson {
             if (transitDetails.has("num_stops"))
             individualBusSteps.setNoOfBusStops(transitDetails.getInt("num_stops"));
             busRoute.setIndividualBusSteps(individualBusSteps);
+
+
         }
 
 

@@ -2,6 +2,8 @@ package edu.unm.albuquerquebus.live.model;
 
 import com.google.android.gms.maps.model.LatLng;
 
+import java.util.List;
+
 /**
  * Created by saikrishna on 10/28/17.
  */
@@ -23,6 +25,8 @@ public class IndividualBusSteps {
     private String busShortName;
     private String busColor;
     private int noOfBusStops;
+
+    private List<BusInfo> mBusInfoList;
 
     public LatLng getArrivalStopLocation() {
         return arrivalStopLocation;
@@ -110,5 +114,13 @@ public class IndividualBusSteps {
 
     public void setBusColor(String busColor) {
         this.busColor = busColor;
+    }
+
+    public List<BusInfo> getBusInfoList() {
+        return mBusInfoList;
+    }
+
+    public void setBusInfoList(List<BusInfo> busInfoList) {
+        mBusInfoList = busInfoList;
     }
 }

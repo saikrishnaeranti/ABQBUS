@@ -1,0 +1,81 @@
+  //this function snaps the location points to the road
+   /* private void getSnapPointsOfRoute(final ArrayList<LatLng> latLngs) {
+
+        ApiCaller apiCaller = new ApiCaller();
+        apiCaller.setAfterApiCallResponse(new ApiCaller.AfterApiCallResponse() {
+
+            @Override
+            public void successResponse(String response, String url) {
+                Log.i(TAG, "SNAP TO Road Response: " + response);
+                try {
+                    ArrayList<LatLng> tempLatLngsList = new DirectionParseJson().getListOfLatLngs(response);
+                    mCurrentDirectionLatLngs.addAll(tempLatLngsList);
+                    if (mCurrentDirectionLatLngs.size() != latLngs.size()) {
+                        getSnapPointsOfRoute(latLngs);
+                    } else {
+                        assignPointsBackToDirectionModel();
+                    }
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+
+
+            }
+
+            @Override
+            public void errorResponse(VolleyError error, String url) {
+
+            }
+        });
+
+        Map<String, String> parameters = new HashMap<>();
+        parameters.put(Constants.INTERPOLATE, String.valueOf(true));
+        parameters.put(Constants.KEY, getResources().getString(R.string.google_maps_key));
+        String latLngStringParameter = "";
+
+        for (int i = mCurrentDirectionLatLngs.size() - 1; i < mCurrentDirectionLatLngs.size() + 100 && i < latLngs.size(); i++) {
+            if (i < 0) {
+                i = 0;
+            }
+            LatLng latLng = latLngs.get(i);
+            latLngStringParameter = latLngStringParameter.concat(String.valueOf(latLng.latitude));
+            latLngStringParameter = latLngStringParameter.concat(",");
+            latLngStringParameter = latLngStringParameter.concat(String.valueOf(latLng.longitude));
+            if (i != mCurrentDirectionLatLngs.size() + 99) {
+                latLngStringParameter = latLngStringParameter.concat("|");
+            }
+
+        }
+        String finalUrl = Constants.GET_SNAP_TO_ROAD_URL;
+        finalUrl += "?";
+        finalUrl += Constants.INTERPOLATE + "=true";
+        finalUrl += "&";
+        finalUrl += Constants.KEY + "=" + getResources().getString(R.string.google_maps_key);
+        finalUrl += "&";
+        finalUrl += Constants.PATH + "=" + latLngStringParameter;
+
+        parameters.put(Constants.PATH, latLngStringParameter);
+        apiCaller.makeStringRequest(MainActivity.this, Request.Method.GET, finalUrl, null);
+
+    }
+*/
+
+
+// this method used to extract the the list of polylinespoints
+private ArrayList<LatLng> getListOfLatLngsOfRoute(DirectionsTransitModel directionsTransitModel) {
+        ArrayList<LatLng> latLngArrayList = new ArrayList<>();
+
+        for (RouteInfo routeInfo :
+                directionsTransitModel.getmListOfRoutes()) {
+            if (routeInfo.transitMode() == "TRANSIT") {
+                BusRoute busRoute = ((BusRoute) routeInfo);
+                latLngArrayList.addAll(busRoute.getPolylineLatLngPoints());
+            } else {
+                latLngArrayList.addAll(((WalkingRoute) routeInfo).getPolylineLatLngPoints());
+            }
+
+
+        }
+
+        return latLngArrayList;
+    }

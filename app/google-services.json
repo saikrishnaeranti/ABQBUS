@@ -1,0 +1,42 @@
+{
+  "project_info": {
+    "project_number": "812424004830",
+    "firebase_url": "https://abqbus-1507087401887.firebaseio.com",
+    "project_id": "abqbus-1507087401887",
+    "storage_bucket": "abqbus-1507087401887.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:812424004830:android:4e983ad5473f589b",
+        "android_client_info": {
+          "package_name": "edu.unm.albuquerquebus.live"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "812424004830-31ed9ohktqakicljdsc280oqcpt09ael.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBMvmapQFMIGkRYhSXGj68AK2L0NmdOQoE"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 1,
+          "other_platform_oauth_client": []
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

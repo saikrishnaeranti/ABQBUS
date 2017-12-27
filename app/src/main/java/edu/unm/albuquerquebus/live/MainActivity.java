@@ -24,6 +24,7 @@ import android.widget.Toast;
 
 import com.android.volley.Request;
 import com.android.volley.VolleyError;
+import com.crashlytics.android.Crashlytics;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
@@ -43,10 +44,16 @@ import com.google.android.gms.maps.model.Dot;
 import com.google.android.gms.maps.model.Gap;
 import com.google.android.gms.maps.model.JointType;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PatternItem;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
 import org.json.JSONException;
 
@@ -58,12 +65,17 @@ import java.util.Map;
 
 import edu.unm.albuquerquebus.live.fragments.DestinationRouteDirectionsFragment;
 import edu.unm.albuquerquebus.live.interfaces.RouteInfo;
+import edu.unm.albuquerquebus.live.model.BusInfo;
 import edu.unm.albuquerquebus.live.model.BusRoute;
+import edu.unm.albuquerquebus.live.model.BusStop;
 import edu.unm.albuquerquebus.live.model.DirectionsTransitModel;
 import edu.unm.albuquerquebus.live.model.WalkingRoute;
 import edu.unm.albuquerquebus.live.utils.ApiCaller;
 import edu.unm.albuquerquebus.live.utils.Constants;
 import edu.unm.albuquerquebus.live.utils.DirectionParseJson;
+import edu.unm.albuquerquebus.live.utils.KmlUtils;
+import edu.unm.albuquerquebus.live.utils.XMLPullParserHandler;
+import io.fabric.sdk.android.Fabric;
 
 public class MainActivity extends AppCompatActivity
         implements OnMapReadyCallback, GoogleMap.OnMyLocationButtonClickListener,
@@ -94,7 +106,6 @@ public class MainActivity extends AppCompatActivity
     private DestinationRouteDirectionsFragment mDestinationRouteDirectionsFragment;
     private List<Polyline> mListOfPolyLines;
 
-    private ArrayList<LatLng> mCurrentDirectionLatLngs;
 
 
     private DirectionsTransitModel mPresentDirectionModelWithWalking;
@@ -103,8 +114,45 @@ public class MainActivity extends AppCompatActivity
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Fabric.with(this, new Crashlytics());
+
+        // Write a message to the database
+        FirebaseDatabase database = FirebaseDatabase.getInstance();
+
+        DatabaseReference myRef = database.getReference().child("busRoute").getDatabase().getReference("message");
+
+        myRef.setValue("Hello, World!");
+        // Read from the database
+        myRef.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                // This method is called once with the initial value and again
+                // whenever data at this location is updated.
+                String value = dataSnapshot.getValue(String.class);
+                Log.d(TAG, "Value is: " + value);
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                // Failed to read value
+                Log.w(TAG, "Failed to read value.", error.toException());
+            }
+        });
+
+
         // Retrieve the content view that renders the map.
         setContentView(R.layout.activity_maps);
+
+        //To read the kml data file from assests folder
+        //List<BusStop> busStopList = KmlUtils.readBusStopsFromKml(this);
+
+        //To read the csv and map stop id with stops
+//        KmlUtils.readStopsFileToMapBusStopwithStopId(this);
+
+        //To read the stops timing and map stops with stop_id in order
+        //KmlUtils.readStopsTimingFileToMapBusStopId(this);
+
+        //KmlUtils.readFromDatabaseGetTripsForEachRoute(busStopList);
         // Get the SupportMapFragment and request notification
         // when the map is ready to be used.
         mMapFragment = (SupportMapFragment) getSupportFragmentManager()
@@ -116,7 +164,7 @@ public class MainActivity extends AppCompatActivity
 
         assignLastKnownLocation(mFusedLocationClient);
 
-        getData();
+        //getData();
         if (checkPlayServices()) {
 
             // Building the GoogleApi client
@@ -124,18 +172,14 @@ public class MainActivity extends AppCompatActivity
 
             createLocationRequest();
         }
+
     }
+
 
     private void assignLastKnownLocation(FusedLocationProviderClient mFusedLocationClient) {
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
             return;
         }
         mFusedLocationClient.getLastLocation()
@@ -158,6 +202,7 @@ public class MainActivity extends AppCompatActivity
                 });
 
     }
+
 
     public boolean checkPlayServices() {
 
@@ -263,16 +308,10 @@ public class MainActivity extends AppCompatActivity
                         });
                 return;
             } else {
-
-                // No explanation needed, we can request the permission.
-
                 ActivityCompat.requestPermissions(this,
                         new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
                         MY_LOCATION_REQUEST_CODE);
 
-                // MY_PERMISSIONS_REQUEST_READ_CONTACTS is an
-                // app-defined int constant. The callback method gets the
-                // result of the request.
             }
         }
 
@@ -301,25 +340,6 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-    private void getData() {
-        ApiCaller apiCaller = new ApiCaller();
-        apiCaller.setAfterApiCallResponse(new ApiCaller.AfterApiCallResponse() {
-            @Override
-            public void successResponse(String response, String url) {
-
-                Log.d("MAIN Class data", response);
-            }
-
-            @Override
-            public void errorResponse(VolleyError error, String url) {
-
-            }
-
-
-        });
-        apiCaller.makeStringRequest(MainActivity.this, Request.Method.GET, Constants.GET_MAP_TEMP_URL + getResources().getString(R.string.google_maps_key), null);
-    }
-
     private void searchPlaces() {
         try {
             mDestinationAddress = "";
@@ -340,8 +360,8 @@ public class MainActivity extends AppCompatActivity
         if (requestCode == PLACE_AUTOCOMPLETE_REQUEST_CODE) {
             if (resultCode == RESULT_OK) {
                 Place place = PlaceAutocomplete.getPlace(this, data);
-                mDestinationAddress = place.getName().toString() + ", " +place.getAddress().toString();
-               String name = place.getName().toString();
+                mDestinationAddress = place.getName().toString() + ", " + place.getAddress().toString();
+                String name = place.getName().toString();
                 if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                     // TODO: Consider calling
                     //    ActivityCompat#requestPermissions
@@ -358,6 +378,8 @@ public class MainActivity extends AppCompatActivity
                     mLastKnownLocation = new LatLng(lastKnowLocation.getLatitude(), lastKnowLocation.getLongitude());
 
                 }
+
+                //here we are getting the bus route from google
                 getRouteOfBus(mLastKnownLocation, place.getLatLng());
 
                 Log.i(TAG, "Place: " + place.getName());
@@ -385,50 +407,15 @@ public class MainActivity extends AppCompatActivity
                         directionsTransitModel.setEndAddress(mDestinationAddress);
                     }*/
                     directionsTransitModel.setEndAddress(mDestinationAddress);
-                    directionsTransitModel.getArrivalTime();
                     getTimeForBicycleForBusStop(directionsTransitModel);
                     if (mDestinationRouteDirectionsFragment != null)
                         mDestinationRouteDirectionsFragment.updateDestinationDetails(directionsTransitModel);
 
-                    if (mListOfPolyLines != null) {
-
-                        for (Polyline polyline :
-                                mListOfPolyLines) {
-                            polyline.remove();
-                        }
-                        mListOfPolyLines = null;
-                    }
-                    mListOfPolyLines = new ArrayList<>();
-                    for (RouteInfo routeInfo :
-                            directionsTransitModel.getmListOfRoutes()) {
-                        if (routeInfo.transitMode() == "TRANSIT") {
-                            BusRoute busRoute = ((BusRoute) routeInfo);
-                            ArrayList<LatLng> latLngs = busRoute.getPolylineLatLngPoints();
-                            Polyline polyline = mMap.addPolyline(new PolylineOptions().addAll(latLngs).width(7).color(Color.parseColor(busRoute.getIndividualBusSteps().getBusColor())));
-                            mListOfPolyLines.add(polyline);
-                        } else {
-                            ArrayList<LatLng> latLngs = ((WalkingRoute) routeInfo).getPolylineLatLngPoints();
-                            Polyline polyline = mMap.addPolyline(new PolylineOptions().addAll(latLngs).width(7).color(Color.BLUE).pattern(Arrays.<PatternItem>asList(
-                                    new Dot(), new Gap(20))));
-                            polyline.setJointType(JointType.ROUND);
-                            mListOfPolyLines.add(polyline);
-
-                        }
-                    }
-                    ArrayList<LatLng> latLngs = getListOfLatLngsOfRoute(directionsTransitModel);
-                    String latLngString = latLngs.get(0).toString();
-                    String latLngString1 = latLngs.get(1).toString();
-                    Log.i(TAG, "latLngString: " + latLngString);
-                    Log.i(TAG, "latLngString1: " + latLngString1);
-                    mCurrentDirectionLatLngs = new ArrayList<>();
-                    //getSnapPointsOfRoute(latLngs);
-
-//                    mRoutePolyline = mMap.addPolyline(new PolylineOptions().addAll(directionsTransitModel.getPolylineLatLngPoints())
-//                            .width(5)
-//                            .color(Color.RED));
+                    removeAllPolyline();// This method removes the polylines that are drawn in last search and creates and new ArrayList
+                    drawWalkingAndBusRoutePolylines(directionsTransitModel);
+                    getBusLocationsAndUpdateInDatabase(directionsTransitModel);
 
 
-                    //mMap.addPolygon(new PolygonOptions());
                 } catch (JSONException e) {
                     e.printStackTrace();
                 }
@@ -452,87 +439,89 @@ public class MainActivity extends AppCompatActivity
         apiCaller.makeStringRequest(MainActivity.this, Request.Method.GET, Constants.GET_MAP_URL, parameters);
     }
 
-    private void getSnapPointsOfRoute(final ArrayList<LatLng> latLngs) {
+    private void getBusLocationsAndUpdateInDatabase(DirectionsTransitModel directionsTransitModel) {
+        List<BusRoute> busRouteList = new ArrayList<>();
+        for (RouteInfo routeInfo :
+                directionsTransitModel.getmListOfRoutes()) {
+            if (routeInfo.transitMode().equalsIgnoreCase("TRANSIT")) {
+                busRouteList.add((BusRoute) routeInfo);
+            }
+        }
 
+        for (BusRoute busRoute :
+                busRouteList) {
+
+            makeRequestToGetBusLocation(busRoute);
+        }
+
+    }
+
+    private void makeRequestToGetBusLocation(final BusRoute busRoute) {
         ApiCaller apiCaller = new ApiCaller();
         apiCaller.setAfterApiCallResponse(new ApiCaller.AfterApiCallResponse() {
-
             @Override
             public void successResponse(String response, String url) {
-                Log.i(TAG, "SNAP TO Road Response: " + response);
-                try {
-                    ArrayList<LatLng> tempLatLngsList = new DirectionParseJson().getListOfLatLngs(response);
-                    mCurrentDirectionLatLngs.addAll(tempLatLngsList);
-                    if (mCurrentDirectionLatLngs.size() != latLngs.size()) {
-                        getSnapPointsOfRoute(latLngs);
-                    } else {
-                        assignPointsBackToDirectionModel();
+
+                XMLPullParserHandler parserHandler = new XMLPullParserHandler();
+                List<BusInfo> busInfoArrayList = parserHandler.parseSingleRouteKml(response);
+                busRoute.getIndividualBusSteps().setBusInfoList(parserHandler.parseSingleRouteKml(response));
+                for (BusInfo busInfo :
+                        busInfoArrayList) {
+                    if (mMap != null) {
+                        LatLng markerLatLng = new LatLng(busInfo.getLatitude(), busInfo.getLongitude());
+                        mMap.addMarker(new MarkerOptions().position(markerLatLng).title(busInfo.getVehicleNumber()));
+                        mMap.moveCamera(CameraUpdateFactory.newLatLng(markerLatLng));
                     }
-                } catch (JSONException e) {
-                    e.printStackTrace();
                 }
-
-
+                Log.d("MAIN Class data", response);
             }
+
 
             @Override
             public void errorResponse(VolleyError error, String url) {
 
             }
+
+
         });
-
-        Map<String, String> parameters = new HashMap<>();
-        parameters.put(Constants.INTERPOLATE, String.valueOf(true));
-        parameters.put(Constants.KEY, getResources().getString(R.string.google_maps_key));
-        String latLngStringParameter = "";
-
-        for (int i = mCurrentDirectionLatLngs.size() - 1; i < mCurrentDirectionLatLngs.size() + 100 && i < latLngs.size(); i++) {
-            if (i < 0) {
-                i = 0;
-            }
-            LatLng latLng = latLngs.get(i);
-            latLngStringParameter = latLngStringParameter.concat(String.valueOf(latLng.latitude));
-            latLngStringParameter = latLngStringParameter.concat(",");
-            latLngStringParameter = latLngStringParameter.concat(String.valueOf(latLng.longitude));
-            if (i != mCurrentDirectionLatLngs.size() + 99) {
-                latLngStringParameter = latLngStringParameter.concat("|");
-            }
-
-        }
-        String finalUrl = Constants.GET_SNAP_TO_ROAD_URL;
-        finalUrl += "?";
-        finalUrl += Constants.INTERPOLATE + "=true";
-        finalUrl += "&";
-        finalUrl += Constants.KEY + "=" + getResources().getString(R.string.google_maps_key);
-        finalUrl += "&";
-        finalUrl += Constants.PATH + "=" + latLngStringParameter;
-
-        parameters.put(Constants.PATH, latLngStringParameter);
-        apiCaller.makeStringRequest(MainActivity.this, Request.Method.GET, finalUrl, null);
-
+        apiCaller.makeStringRequest(MainActivity.this, Request.Method.GET,
+                String.format(Constants.GET_ROUTE_URL,
+                        busRoute.getIndividualBusSteps().getBusShortName().trim()), null);
     }
 
-    private void assignPointsBackToDirectionModel() {
-
-    }
-
-    private ArrayList<LatLng> getListOfLatLngsOfRoute(DirectionsTransitModel directionsTransitModel) {
-        ArrayList<LatLng> latLngArrayList = new ArrayList<>();
+    private void drawWalkingAndBusRoutePolylines(DirectionsTransitModel directionsTransitModel) {
 
         for (RouteInfo routeInfo :
                 directionsTransitModel.getmListOfRoutes()) {
-            if (routeInfo.transitMode() == "TRANSIT") {
+            if (routeInfo.transitMode().equalsIgnoreCase("TRANSIT")) {
                 BusRoute busRoute = ((BusRoute) routeInfo);
-                latLngArrayList.addAll(busRoute.getPolylineLatLngPoints());
+                ArrayList<LatLng> latLngs = busRoute.getPolylineLatLngPoints();
+                Polyline polyline = mMap.addPolyline(new PolylineOptions().addAll(latLngs).width(7).color(Color.parseColor(busRoute.getIndividualBusSteps().getBusColor())));
+                mListOfPolyLines.add(polyline);
             } else {
-                latLngArrayList.addAll(((WalkingRoute) routeInfo).getPolylineLatLngPoints());
+                ArrayList<LatLng> latLngs = ((WalkingRoute) routeInfo).getPolylineLatLngPoints();
+                Polyline polyline = mMap.addPolyline(new PolylineOptions().addAll(latLngs).width(7).color(Color.BLUE).pattern(Arrays.<PatternItem>asList(
+                        new Dot(), new Gap(20))));
+                polyline.setJointType(JointType.ROUND);
+                mListOfPolyLines.add(polyline);
+
             }
-
-
         }
-
-        return latLngArrayList;
     }
+
+    private void removeAllPolyline() {
+
+        if (mListOfPolyLines != null) {
+
+            for (Polyline polyline :
+                    mListOfPolyLines) {
+                polyline.remove();
+            }
+            mListOfPolyLines = null;
+        }
+        mListOfPolyLines = new ArrayList<>();
+    }
+
 
     private void getTimeForBicycleForBusStop(DirectionsTransitModel directionsTransitModel) {
         ApiCaller apiCaller = new ApiCaller();
@@ -545,13 +534,6 @@ public class MainActivity extends AppCompatActivity
                     if (mDestinationRouteDirectionsFragment != null)
                         mDestinationRouteDirectionsFragment.updateBicycleTimeDetails(directionsTransitModel);
 
-                    /*if (directionsTransitModel.getEndAddress() == null || directionsTransitModel.getEndAddress().length() == 0) {
-                        directionsTransitModel.setEndAddress(mDestinationAddress);
-                    }*/
-                   /* directionsTransitModel.setEndAddress(mDestinationAddress);
-                    directionsTransitModel.getArrivalTime();
-                    if (mDestinationRouteDirectionsFragment != null)
-                        mDestinationRouteDirectionsFragment.updateDestinationDetails(directionsTransitModel);*/
                 } catch (JSONException e) {
                     e.printStackTrace();
                 }
@@ -584,7 +566,6 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public boolean onMyLocationButtonClick() {
-
         return false;
     }
 

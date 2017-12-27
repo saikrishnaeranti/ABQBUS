@@ -21,4 +21,6 @@ public class BusRoute extends Route {
     public String transitMode() {
         return "TRANSIT";
     }
+
+
 }

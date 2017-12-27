@@ -23,10 +23,10 @@ public class Constants {
     public static final String DIDNT_SEND_GCM_TOKEN = "Didn't send Gcm Token ";
     public static final String SENT_GCM_TOKEN_TO_SERVER = "sent_gcm_token_to_server";
     public static final String GCM_TOKEN = "gcm_token";
-    public static final String GET_ROUTE_URL = "http://data.cabq.gov/transit/realtime/route/route10.kml";
+    public static final String GET_ROUTE_URL = "http://data.cabq.gov/transit/realtime/route/route%s.kml";
     public static final String GET_MAP_URL = "https://maps.googleapis.com/maps/api/directions/json";
     public static final String GET_SNAP_TO_ROAD_URL = "https://roads.googleapis.com/v1/snapToRoads";
-    public static final String GET_MAP_TEMP_URL = "https://maps.googleapis.com/maps/api/directions/json?origin=Toronto&destination=Montreal&key=";
+//    public static final String GET_MAP_TEMP_URL = "https://maps.googleapis.com/maps/api/directions/json?origin=Toronto&destination=Montreal&key=";
 
     //Map Parameters
     public static final String ORIGIN = "origin";
