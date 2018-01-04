@@ -1,8 +1,9 @@
 package edu.unm.albuquerquebus.live.fragments;
 
 import android.content.Context;
-import android.net.Uri;
+import android.content.res.ColorStateList;
 import android.os.Bundle;
+import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -78,6 +79,7 @@ public class DestinationRouteDirectionsFragment extends Fragment {
                              Bundle savedInstanceState) {
 
         View view = inflater.inflate(R.layout.route_fragment_layout, container, false);
+
         mDestinationTextView = view.findViewById(R.id.destination_text);
         mDestinationTextView.setSelected(true);
 
@@ -85,27 +87,49 @@ public class DestinationRouteDirectionsFragment extends Fragment {
 
         mWalkTimeTextView = view.findViewById(R.id.walk_time);
 
+
         mBicycleTimeTextView = view.findViewById(R.id.bicycle_time);
-        /*mOrders = new ArrayList<>();
-        mProgressBarLayout = (FrameLayout) getActivity().findViewById(R.id.progress_bar_main_layout);
-        mContentResolver = getActivity().getContentResolver();
-        ProcessRestaurantOrders processRestaurantOrders = new ProcessRestaurantOrders(mActivity, mContentResolver);
-        processRestaurantOrders.execute();
-        mProgressBarLayout = (FrameLayout) getActivity().findViewById(R.id.progress_bar_main_layout);
-        mAdapter = new OrdersCustomAdapter(getActivity(), getChildFragmentManager(), mOrders, mTypeOfList, this);
-        mOrdersListView = (ListView) view.findViewById(R.id.orders_list);
-        mOrdersListView.setAdapter(mAdapter);
-        getLoaderManager().initLoader(LOADER_ID, null, this);*/
+
+        final FloatingActionButton mBicycleFabButton = view.findViewById(R.id.bike_fab);
+
+
+        final FloatingActionButton mWalkFabButton = view.findViewById(R.id.walk_fab);
+        mWalkFabButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.colorPrimary)));
+
+        FloatingActionButton directionsFabButton = view.findViewById(R.id.direction_fab);
+        directionsFabButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (mListener != null) {
+                    mListener.showDirections();
+                }
+            }
+        });
+        mBicycleFabButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (mListener != null) {
+                    mBicycleFabButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.colorPrimary)));
+                    mWalkFabButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.white)));
+                    mListener.showBicyclePolyLines();
+                }
+            }
+        });
+        mWalkFabButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (mListener != null) {
+                    mBicycleFabButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.white)));
+                    mWalkFabButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.colorPrimary)));
+                    mListener.showWalkPolyLines();
+                }
+            }
+        });
         return view;
 
     }
 
-    // TODO: Rename method, update argument and hook method into UI event
-    public void onButtonPressed(Uri uri) {
-        if (mListener != null) {
-            mListener.onFragmentInteraction(uri);
-        }
-    }
+
 
     @Override
     public void onAttach(Context context) {
@@ -174,11 +198,14 @@ public class DestinationRouteDirectionsFragment extends Fragment {
                 LayoutInflater inflater = getActivity().getLayoutInflater();
                 View view = inflater.inflate(R.layout.each_bus_layout, null);
                 TextView busNoTextView = view.findViewById(R.id.bus_no);
+                TextView busTimingTextView = view.findViewById(R.id.bus_timing);
                 busNoTextView.setText(busRoute.getIndividualBusSteps().getBusShortName());
+                busTimingTextView.setText(busRoute.getIndividualBusSteps().getDepartureTimeString());
                 mBusLinearLayout.addView(view);
                 if (busesAdded < directionsTransitModel.getTotalNumberOfBuses()) {
                     View arrowView = inflater.inflate(R.layout.bus_to_bus_layout, null);
                     mBusLinearLayout.addView(arrowView);
+
                 }
 
             }
@@ -198,7 +225,10 @@ public class DestinationRouteDirectionsFragment extends Fragment {
      */
     public interface OnDestinationRouteDirectionsFragmentInteractionListener {
         // TODO: Update argument type and name
-        void onFragmentInteraction(Uri uri);
+        void showDirections();
 
+        void showBicyclePolyLines();
+
+        void showWalkPolyLines();
     }
 }

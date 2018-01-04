@@ -10,6 +10,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:contentDescription="@string/bus_icon"
+        android:layout_gravity="center_horizontal"
         android:src="@drawable/ic_action_directions_bus"/>
 
     <TextView
@@ -18,7 +19,16 @@
         android:layout_height="match_parent"
         android:layout_gravity="center_horizontal"
         android:gravity="center"
-        android:text="66"
+        android:text="@string/sample_bus_number"
+        android:textAlignment="center"/>
+
+    <TextView
+        android:id="@+id/bus_timing"
+        android:layout_width="80dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="center_horizontal"
+        android:gravity="center"
+        android:text="@string/sample_time"
         android:textAlignment="center"/>
 
 

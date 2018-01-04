@@ -1,30 +1,34 @@
 package edu.unm.albuquerquebus.live;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.location.Location;
-import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
+import android.support.v4.app.Fragment;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
-import android.view.Menu;
-import android.view.MenuInflater;
-import android.view.MenuItem;
+import android.view.Gravity;
 import android.view.View;
+import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.android.volley.Request;
 import com.android.volley.VolleyError;
 import com.crashlytics.android.Crashlytics;
+import com.getbase.floatingactionbutton.FloatingActionButton;
+import com.getbase.floatingactionbutton.FloatingActionsMenu;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
@@ -34,16 +38,20 @@ import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.places.AutocompleteFilter;
 import com.google.android.gms.location.places.Place;
 import com.google.android.gms.location.places.ui.PlaceAutocomplete;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.Dot;
 import com.google.android.gms.maps.model.Gap;
 import com.google.android.gms.maps.model.JointType;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PatternItem;
 import com.google.android.gms.maps.model.Polyline;
@@ -53,34 +61,45 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
 
 import org.json.JSONException;
 
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import edu.unm.albuquerquebus.live.fragments.DestinationRouteDirectionsFragment;
+import edu.unm.albuquerquebus.live.fragments.DirectionsFragment;
 import edu.unm.albuquerquebus.live.interfaces.RouteInfo;
 import edu.unm.albuquerquebus.live.model.BusInfo;
 import edu.unm.albuquerquebus.live.model.BusRoute;
-import edu.unm.albuquerquebus.live.model.BusStop;
 import edu.unm.albuquerquebus.live.model.DirectionsTransitModel;
 import edu.unm.albuquerquebus.live.model.WalkingRoute;
 import edu.unm.albuquerquebus.live.utils.ApiCaller;
 import edu.unm.albuquerquebus.live.utils.Constants;
 import edu.unm.albuquerquebus.live.utils.DirectionParseJson;
 import edu.unm.albuquerquebus.live.utils.KmlUtils;
+import edu.unm.albuquerquebus.live.utils.LatLngInterpolator;
+import edu.unm.albuquerquebus.live.utils.MarkerAnimation;
 import edu.unm.albuquerquebus.live.utils.XMLPullParserHandler;
 import io.fabric.sdk.android.Fabric;
 
 public class MainActivity extends AppCompatActivity
         implements OnMapReadyCallback, GoogleMap.OnMyLocationButtonClickListener,
         GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener,
-        DestinationRouteDirectionsFragment.OnDestinationRouteDirectionsFragmentInteractionListener {
+        DestinationRouteDirectionsFragment.OnDestinationRouteDirectionsFragmentInteractionListener, DirectionsFragment.OnListFragmentInteractionListener {
 
     private static final int MY_LOCATION_REQUEST_CODE = 100;
     private static final String TAG = MainActivity.class.getSimpleName();
@@ -104,11 +123,21 @@ public class MainActivity extends AppCompatActivity
     private SupportMapFragment mMapFragment;
     private String mDestinationAddress;
     private DestinationRouteDirectionsFragment mDestinationRouteDirectionsFragment;
+
     private List<Polyline> mListOfPolyLines;
+    private Map<String, Marker> mMarkerMap;
 
 
+    private int delay = 100; // delay for 100 microsec.
+    private int period = 10000; // repeat every 10 sec.
+    private Timer timer;
 
     private DirectionsTransitModel mPresentDirectionModelWithWalking;
+    private HashMap<String, List<String>> mBusStopNameToStopCodeMap;
+    private int counter = 0;
+    private DirectionsFragment mDirectionsFragment;
+    private Fragment fragment;
+    private DirectionsTransitModel currentDirectionsTransitModel;
 
 
     @Override
@@ -119,32 +148,13 @@ public class MainActivity extends AppCompatActivity
         // Write a message to the database
         FirebaseDatabase database = FirebaseDatabase.getInstance();
 
-        DatabaseReference myRef = database.getReference().child("busRoute").getDatabase().getReference("message");
-
-        myRef.setValue("Hello, World!");
-        // Read from the database
-        myRef.addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                // This method is called once with the initial value and again
-                // whenever data at this location is updated.
-                String value = dataSnapshot.getValue(String.class);
-                Log.d(TAG, "Value is: " + value);
-            }
-
-            @Override
-            public void onCancelled(DatabaseError error) {
-                // Failed to read value
-                Log.w(TAG, "Failed to read value.", error.toException());
-            }
-        });
-
-
         // Retrieve the content view that renders the map.
-        setContentView(R.layout.activity_maps);
+        setContentView(R.layout.activity_main);
 
         //To read the kml data file from assests folder
-        //List<BusStop> busStopList = KmlUtils.readBusStopsFromKml(this);
+//        List<BusStop> busStopList = KmlUtils.readBusStopsFromKml(this);
+//        List<BusStop> busStopList = KmlUtils.readBusStopsFromKml(MainActivity.this);
+//        mBusStopNameToStopCodeMap = KmlUtils.getBusStopNameToStopCodeMapping(busStopList);
 
         //To read the csv and map stop id with stops
 //        KmlUtils.readStopsFileToMapBusStopwithStopId(this);
@@ -152,8 +162,12 @@ public class MainActivity extends AppCompatActivity
         //To read the stops timing and map stops with stop_id in order
         //KmlUtils.readStopsTimingFileToMapBusStopId(this);
 
-        //KmlUtils.readFromDatabaseGetTripsForEachRoute(busStopList);
+//        KmlUtils.readFromDatabaseGetTripsForEachRoute(busStopList,this);
+
+        // Get start and end time of buses
+        KmlUtils.findStartAndEndTimeOfEachBus();
         // Get the SupportMapFragment and request notification
+
         // when the map is ready to be used.
         mMapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
@@ -173,6 +187,57 @@ public class MainActivity extends AppCompatActivity
             createLocationRequest();
         }
 
+        if (timer != null) {
+            timer.cancel();
+        }
+        timer = new Timer();
+        timer.scheduleAtFixedRate(new TimerTask() {
+            public void run() {
+                Log.d("counter of timer", String.valueOf(++counter));
+                if (counter % 10 == 0) {
+                    System.gc();
+                }
+                getAllRouteJson();
+            }
+        }, delay, period);
+
+        final FloatingActionsMenu menuMultipleActions = (FloatingActionsMenu) findViewById(R.id.multiple_actions);
+
+        FloatingActionButton searchButton = findViewById(R.id.action_search);
+        searchButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+//                if (timeCheckIfBusesAvailable())
+                searchPlaces();
+                menuMultipleActions.collapse();
+            }
+        });
+
+
+    }
+
+    private void getAllRouteJson() {
+
+        ApiCaller apiCaller = new ApiCaller();
+        apiCaller.setAfterApiCallResponse(new ApiCaller.AfterApiCallResponse() {
+            @Override
+            public void successResponse(String response, String url) {
+
+                KmlUtils.readAllTripsAndBusLocationDataFromAllRouteJson(response);
+
+                // Log.d("MAIN Class data", response);
+            }
+
+            @Override
+            public void errorResponse(VolleyError error, String url) {
+
+            }
+
+
+        });
+
+
+        apiCaller.makeStringRequest(MainActivity.this, Request.Method.GET, Constants.GET_ALL_ROUTE_JSON, null);
     }
 
 
@@ -234,32 +299,56 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        MenuInflater inflater = getMenuInflater();
-        inflater.inflate(R.menu.mainmenu, menu);
-        return true;
-    }
+//    @Override
+//    public boolean onCreateOptionsMenu(Menu menu) {
+//        MenuInflater inflater = getMenuInflater();
+//        inflater.inflate(R.menu.mainmenu, menu);
+//        return true;
+//    }
+//
+//    @Override
+//    public boolean onOptionsItemSelected(MenuItem item) {
+//        switch (item.getItemId()) {
+//            // action with ID action_refresh was selected
+//            case R.id.action_search:
+//
+//
+//                break;
+//            /*// action with ID action_settings was selected
+//            case R.id.action_settings:
+//                Toast.makeText(this, "Settings selected", Toast.LENGTH_SHORT)
+//                        .show();
+//                break;*/
+//            default:
+//                break;
+//        }
+//
+//        return true;
+//    }
 
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()) {
-            // action with ID action_refresh was selected
-            case R.id.action_search:
-                Toast.makeText(this, "Refresh selected", Toast.LENGTH_SHORT)
-                        .show();
-                searchPlaces();
-                break;
-            /*// action with ID action_settings was selected
-            case R.id.action_settings:
-                Toast.makeText(this, "Settings selected", Toast.LENGTH_SHORT)
-                        .show();
-                break;*/
-            default:
-                break;
+    private boolean timeCheckIfBusesAvailable() {
+
+        String startTime = "05:24:00";
+        String endTime = "23:12:00";
+
+        try {
+            Date currentTime = new Date();
+            SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd");
+            String currentdate = DATE_FORMAT.format(currentTime);
+            Date startTimeDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(currentdate + " " + startTime);
+            Date endTimeDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(currentdate + " " + endTime);
+
+
+            if (startTimeDate.compareTo(currentTime) == -1 && endTimeDate.compareTo(currentTime) == 1) {
+                return true;
+            }
+
+        } catch (ParseException e) {
+            e.printStackTrace();
         }
 
-        return true;
+        Toast.makeText(this, "There are no buses running currently.", Toast.LENGTH_SHORT).show();
+        return false;
     }
 
     @Override
@@ -273,9 +362,20 @@ public class MainActivity extends AppCompatActivity
             // and next place it, for exemple, on bottom right (as Google Maps app)
             RelativeLayout.LayoutParams rlp = (RelativeLayout.LayoutParams) mLocationButton.getLayoutParams();
             // position on right bottom
-            rlp.addRule(RelativeLayout.ALIGN_PARENT_TOP, 0);
+//            //rlp.addRule(RelativeLayout.ALIGN_PARENT_TOP, 0);
+//            rlp.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM, RelativeLayout.TRUE);
+//            rlp.setMargins(0, 0, 30, 30);
+
+            //for bottom left
             rlp.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM, RelativeLayout.TRUE);
-            rlp.setMargins(0, 0, 30, 30);
+            rlp.addRule(RelativeLayout.ALIGN_PARENT_LEFT, RelativeLayout.TRUE);
+            rlp.addRule(RelativeLayout.ALIGN_PARENT_RIGHT, 0);
+            rlp.addRule(RelativeLayout.ALIGN_PARENT_TOP, 0);
+
+            rlp.addRule(RelativeLayout.ALIGN_PARENT_END, 0);
+            rlp.addRule(RelativeLayout.ALIGN_END, 0);
+            rlp.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
+            rlp.setMargins(30, 0, 0, 40);
 
         }
 
@@ -314,6 +414,7 @@ public class MainActivity extends AppCompatActivity
 
             }
         }
+        mapInitialize();
 
     }
 
@@ -342,16 +443,19 @@ public class MainActivity extends AppCompatActivity
 
     private void searchPlaces() {
         try {
+            AutocompleteFilter typeFilter = new AutocompleteFilter.Builder()
+                    .setCountry("US")
+                    .build();
             mDestinationAddress = "";
             Intent intent =
-                    new PlaceAutocomplete.IntentBuilder(PlaceAutocomplete.MODE_FULLSCREEN)
-                            //  .setBoundsBias(new LatLngBounds(new LatLng(34.927097, -106.476673),new LatLng(35.232219, -106.869434) ))
+                    new PlaceAutocomplete.IntentBuilder(PlaceAutocomplete.MODE_FULLSCREEN).setFilter(typeFilter)
+                            //North Latitude: 35.218054 South Latitude: 34.946766 East Longitude: -106.471163 West Longitude: -106.881796
+                            .setBoundsBias(new LatLngBounds(new LatLng(34.946766, -106.471163), new LatLng(35.218054, -106.881796)))
                             .build(this);
             startActivityForResult(intent, PLACE_AUTOCOMPLETE_REQUEST_CODE);
-        } catch (GooglePlayServicesRepairableException e) {
+        } catch (GooglePlayServicesRepairableException | GooglePlayServicesNotAvailableException e) {
             // TODO: Handle the error.
-        } catch (GooglePlayServicesNotAvailableException e) {
-            // TODO: Handle the error.
+            e.fillInStackTrace();
         }
     }
 
@@ -402,18 +506,22 @@ public class MainActivity extends AppCompatActivity
             public void successResponse(String response, String url) {
 
                 try {
-                    DirectionsTransitModel directionsTransitModel = new DirectionParseJson().parseRoute(response, MainActivity.this);
-                    /*if (directionsTransitModel.getEndAddress() == null || directionsTransitModel.getEndAddress().length() == 0) {
-                        directionsTransitModel.setEndAddress(mDestinationAddress);
+                    currentDirectionsTransitModel = new DirectionParseJson().parseRoute(response, MainActivity.this);
+                    /*if (currentDirectionsTransitModel.getEndAddress() == null || currentDirectionsTransitModel.getEndAddress().length() == 0) {
+                        currentDirectionsTransitModel.setEndAddress(mDestinationAddress);
                     }*/
-                    directionsTransitModel.setEndAddress(mDestinationAddress);
-                    getTimeForBicycleForBusStop(directionsTransitModel);
+                    currentDirectionsTransitModel.setEndAddress(mDestinationAddress);
+                    getTimeForBicycleForBusStop(currentDirectionsTransitModel);
                     if (mDestinationRouteDirectionsFragment != null)
-                        mDestinationRouteDirectionsFragment.updateDestinationDetails(directionsTransitModel);
+                        mDestinationRouteDirectionsFragment.updateDestinationDetails(currentDirectionsTransitModel);
 
-                    removeAllPolyline();// This method removes the polylines that are drawn in last search and creates and new ArrayList
-                    drawWalkingAndBusRoutePolylines(directionsTransitModel);
-                    getBusLocationsAndUpdateInDatabase(directionsTransitModel);
+                    if (timer != null) {
+                        timer.cancel();
+                    }
+                    timer = new Timer();
+                    removeAllPolylineAndMarkers();// This method removes the polylines that are drawn in last search and creates and new ArrayList
+                    drawWalkingAndBusRoutePolylines(currentDirectionsTransitModel);
+                    getBusLocationsAndUpdateInDatabase(currentDirectionsTransitModel);
 
 
                 } catch (JSONException e) {
@@ -440,7 +548,7 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void getBusLocationsAndUpdateInDatabase(DirectionsTransitModel directionsTransitModel) {
-        List<BusRoute> busRouteList = new ArrayList<>();
+        final List<BusRoute> busRouteList = new ArrayList<>();
         for (RouteInfo routeInfo :
                 directionsTransitModel.getmListOfRoutes()) {
             if (routeInfo.transitMode().equalsIgnoreCase("TRANSIT")) {
@@ -448,11 +556,18 @@ public class MainActivity extends AppCompatActivity
             }
         }
 
-        for (BusRoute busRoute :
-                busRouteList) {
 
-            makeRequestToGetBusLocation(busRoute);
-        }
+        timer.scheduleAtFixedRate(new TimerTask() {
+            public void run() {
+
+                for (BusRoute busRoute :
+                        busRouteList) {
+
+                    makeRequestToGetBusLocation(busRoute);
+                }
+            }
+        }, delay, period);
+
 
     }
 
@@ -465,15 +580,108 @@ public class MainActivity extends AppCompatActivity
                 XMLPullParserHandler parserHandler = new XMLPullParserHandler();
                 List<BusInfo> busInfoArrayList = parserHandler.parseSingleRouteKml(response);
                 busRoute.getIndividualBusSteps().setBusInfoList(parserHandler.parseSingleRouteKml(response));
+                //getAllTripDetails(busRoute);
                 for (BusInfo busInfo :
                         busInfoArrayList) {
+                    LatLng markerLatLng = new LatLng(busInfo.getLatitude(), busInfo.getLongitude());
                     if (mMap != null) {
-                        LatLng markerLatLng = new LatLng(busInfo.getLatitude(), busInfo.getLongitude());
-                        mMap.addMarker(new MarkerOptions().position(markerLatLng).title(busInfo.getVehicleNumber()));
-                        mMap.moveCamera(CameraUpdateFactory.newLatLng(markerLatLng));
+
+                        if (!mMarkerMap.containsKey(busInfo.getVehicleNumber())) {
+                            mMarkerMap.put(busInfo.getVehicleNumber(), mMap.addMarker(new MarkerOptions()
+                                    .position(markerLatLng)
+                                    .title(busInfo.getVehicleNumber() + "," + busInfo.getBusShortName().trim())
+                                    .snippet(busInfo.toString())
+                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_bus_marker))));
+                        } else {
+                            Marker marker = mMarkerMap.get(busInfo.getVehicleNumber());
+                            marker.setTitle(busInfo.getVehicleNumber() + "," + busInfo.getBusShortName().trim());
+                            marker.setSnippet(busInfo.toString());
+                            marker.setIcon(BitmapDescriptorFactory.fromResource(R.drawable.ic_bus_marker));
+                            MarkerAnimation.animateMarkerToICS(marker, markerLatLng, new LatLngInterpolator.Spherical());
+                        }
+
+                        //mMap.moveCamera(CameraUpdateFactory.newLatLng(markerLatLng));
                     }
                 }
                 Log.d("MAIN Class data", response);
+            }
+
+            private void getAllTripDetails(final BusRoute busRoute) {
+
+                final DatabaseReference database = FirebaseDatabase.getInstance().getReference();
+                Query query = database.child("busNumber-with-trips1").child(busRoute.getIndividualBusSteps().getBusShortName().trim());
+                long arrivalTime = busRoute.getIndividualBusSteps().getArrivalTime();
+                long departTime = busRoute.getIndividualBusSteps().getDepartureTime();
+                Date date = new Date(departTime * 1000);
+
+                Log.d("departTime", date.toString());
+
+                DateFormat df = new SimpleDateFormat("HH:mm:ss");
+                df.setTimeZone(TimeZone.getTimeZone("MST"));
+                final String departTimeString = df.format(date);
+                Log.d("departTime", busRoute.getIndividualBusSteps().getBusShortName() + "-" + departTimeString);
+
+                query.addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(DataSnapshot dataSnapshot) {
+
+                        Map<String, ArrayList<HashMap<String, String>>> mapofBusNumberAndTripDetails = (Map<String, ArrayList<HashMap<String, String>>>) dataSnapshot.getValue();
+
+                        Log.d("tripss", String.valueOf(mapofBusNumberAndTripDetails.size()));
+
+                        Iterator<Map.Entry<String, ArrayList<HashMap<String, String>>>> it = mapofBusNumberAndTripDetails.entrySet().iterator();
+
+                        String finalTrip = "";
+                        while (it.hasNext()) {
+                            Map.Entry<String, ArrayList<HashMap<String, String>>> pair = it.next();
+                            //Log.d("tripss", pair.getKey() + " = " + pair.getValue());
+                            ArrayList<HashMap<String, String>> singleBusTripDetailsArrayList = pair.getValue();
+
+                            for (HashMap<String, String> eachBusTripStopsDetails :
+                                    singleBusTripDetailsArrayList) {
+
+                                if (eachBusTripStopsDetails.get("departTime").equalsIgnoreCase(departTimeString)) {
+                                    finalTrip = pair.getKey();
+                                    break;
+                                }
+                            }
+                            it.remove(); // avoids a ConcurrentModificationException
+                        }
+
+                        Log.d("finalTrip", finalTrip);
+                        ArrayList<HashMap<String, String>> finalBusTripDetailsArrayList = mapofBusNumberAndTripDetails.get(finalTrip);
+                        if (busRoute.getIndividualBusSteps().getBusInfoList().size() > 0)
+                            Log.d("finalTrip", busRoute.getIndividualBusSteps().getBusInfoList().get(0).getNextStop());
+
+                        for (BusInfo busInfo :
+                                busRoute.getIndividualBusSteps().getBusInfoList()) {
+
+                            // String stopCode = mBusStopNameToStopCodeMap.get(busInfo.getNextStop());
+                            for (HashMap<String, String> eachBusDetails :
+                                    finalBusTripDetailsArrayList) {
+//                                if(busInfo.)
+
+
+                            }
+                        }
+
+                        for (DataSnapshot data : dataSnapshot.getChildren()) {
+
+                            for (DataSnapshot data1 : data.getChildren()
+                                    ) {
+                                //Log.d("tripss", data1.toString());
+
+                            }
+
+                        }
+
+                    }
+
+                    @Override
+                    public void onCancelled(DatabaseError databaseError) {
+
+                    }
+                });
             }
 
 
@@ -491,6 +699,8 @@ public class MainActivity extends AppCompatActivity
 
     private void drawWalkingAndBusRoutePolylines(DirectionsTransitModel directionsTransitModel) {
 
+        removeAllPolyline();
+        directionsTransitModel.setTypeOfRoute(DirectionsTransitModel.RouteType.WALKING);
         for (RouteInfo routeInfo :
                 directionsTransitModel.getmListOfRoutes()) {
             if (routeInfo.transitMode().equalsIgnoreCase("TRANSIT")) {
@@ -506,11 +716,65 @@ public class MainActivity extends AppCompatActivity
                 mListOfPolyLines.add(polyline);
 
             }
+
         }
     }
 
-    private void removeAllPolyline() {
+    private void drawBikeAndBusRoutePolylines(DirectionsTransitModel directionsTransitModel) {
 
+        boolean firstBikeRouteDrawn = false;
+        directionsTransitModel.setTypeOfRoute(DirectionsTransitModel.RouteType.BIKE);
+        removeAllPolyline();
+        for (RouteInfo routeInfo :
+                directionsTransitModel.getmListOfRoutes()) {
+            if (routeInfo.transitMode().equalsIgnoreCase("TRANSIT")) {
+                BusRoute busRoute = ((BusRoute) routeInfo);
+                ArrayList<LatLng> latLngs = busRoute.getPolylineLatLngPoints();
+                Polyline polyline = mMap.addPolyline(new PolylineOptions().addAll(latLngs).width(7).color(Color.parseColor(busRoute.getIndividualBusSteps().getBusColor())));
+                mListOfPolyLines.add(polyline);
+            } else {
+                if (firstBikeRouteDrawn) {
+                    ArrayList<LatLng> latLngs = ((WalkingRoute) routeInfo).getPolylineLatLngPoints();
+                    Polyline polyline = mMap.addPolyline(new PolylineOptions().addAll(latLngs).width(7).color(Color.BLUE).pattern(Arrays.<PatternItem>asList(
+                            new Dot(), new Gap(20))));
+                    polyline.setJointType(JointType.ROUND);
+                    mListOfPolyLines.add(polyline);
+                } else {
+                    firstBikeRouteDrawn = true;
+                    ArrayList<LatLng> latLngs = directionsTransitModel.getFirstBicycleRoute().getPolylineLatLngPoints();
+                    Polyline polyline = mMap.addPolyline(new PolylineOptions().addAll(latLngs).width(7).color(Color.BLUE).pattern(Arrays.<PatternItem>asList(
+                            new Dot(), new Gap(20))));
+                    polyline.setJointType(JointType.ROUND);
+                    mListOfPolyLines.add(polyline);
+                }
+
+            }
+        }
+    }
+
+    private void removeAllPolylineAndMarkers() {
+
+        removeAllPolyline();
+
+
+        if (mMarkerMap != null) {
+
+            Iterator<Map.Entry<String, Marker>> it = mMarkerMap.entrySet().iterator();
+            while (it.hasNext()) {
+                Map.Entry<String, Marker> pair = it.next();
+                Marker marker = pair.getValue();
+                marker.remove();
+                System.out.println(pair.getKey() + " = " + pair.getValue());
+                it.remove(); // avoids a ConcurrentModificationException
+            }
+            mMarkerMap = null;
+        }
+        mMarkerMap = new HashMap<>();
+
+
+    }
+
+    private void removeAllPolyline() {
         if (mListOfPolyLines != null) {
 
             for (Polyline polyline :
@@ -523,16 +787,19 @@ public class MainActivity extends AppCompatActivity
     }
 
 
-    private void getTimeForBicycleForBusStop(DirectionsTransitModel directionsTransitModel) {
+    private void getTimeForBicycleForBusStop(final DirectionsTransitModel directionsTransitModel) {
         ApiCaller apiCaller = new ApiCaller();
         apiCaller.setAfterApiCallResponse(new ApiCaller.AfterApiCallResponse() {
             @Override
             public void successResponse(String response, String url) {
 
                 try {
-                    DirectionsTransitModel directionsTransitModel = new DirectionParseJson().parseRoute(response, MainActivity.this);
+                    DirectionsTransitModel bikeDirectionsTransitModel = new DirectionParseJson().parseRoute(response, MainActivity.this);
+                    if (directionsTransitModel.getmListOfRoutes().size() > 0) {
+                        directionsTransitModel.setFirstBicycleRoute(bikeDirectionsTransitModel);
+                    }
                     if (mDestinationRouteDirectionsFragment != null)
-                        mDestinationRouteDirectionsFragment.updateBicycleTimeDetails(directionsTransitModel);
+                        mDestinationRouteDirectionsFragment.updateBicycleTimeDetails(bikeDirectionsTransitModel);
 
                 } catch (JSONException e) {
                     e.printStackTrace();
@@ -542,6 +809,7 @@ public class MainActivity extends AppCompatActivity
 
             @Override
             public void errorResponse(VolleyError error, String url) {
+                Log.d(TAG, error.getMessage());
 
             }
 
@@ -552,6 +820,7 @@ public class MainActivity extends AppCompatActivity
         for (int i = 0; i < routeInfoArrayList.size(); i++) {
             if (routeInfoArrayList.get(i).transitMode().equalsIgnoreCase("WALKING")) {
                 walkingRoute = (WalkingRoute) routeInfoArrayList.get(i);
+                directionsTransitModel.setFirstWalkingRoute(walkingRoute);
                 break;
             }
         }
@@ -598,10 +867,86 @@ public class MainActivity extends AppCompatActivity
     }
 
     @Override
-    public void onFragmentInteraction(Uri uri) {
+    public void showDirections() {
+
+        if (currentDirectionsTransitModel != null) {
+            //this is code for fragment
+            mDirectionsFragment = new DirectionsFragment();
+            fragment = mDirectionsFragment;
+
+            android.support.v4.app.FragmentManager fragmentManager = getSupportFragmentManager();
+            fragmentManager.beginTransaction()
+                    .replace(R.id.frame_container, fragment).commit();
+            fragmentManager.beginTransaction().addToBackStack(null);
+
+            getUpdatedData();
+        }
+    }
+
+    @Override
+    public void showBicyclePolyLines() {
+        if (currentDirectionsTransitModel != null) {
+            drawBikeAndBusRoutePolylines(currentDirectionsTransitModel);
+        }
+    }
+
+    @Override
+    public void showWalkPolyLines() {
+        if (currentDirectionsTransitModel != null) {
+            drawWalkingAndBusRoutePolylines(currentDirectionsTransitModel);
+        }
+    }
+
+
+    public void mapInitialize() {
+        final Context mContext = this;
+        mMap.setInfoWindowAdapter(new GoogleMap.InfoWindowAdapter() {
+
+            @Override
+            public View getInfoWindow(Marker arg0) {
+                return null;
+            }
+
+            @Override
+            public View getInfoContents(Marker marker) {
+
+                LinearLayout info = new LinearLayout(mContext);
+                info.setOrientation(LinearLayout.VERTICAL);
+
+                TextView title = new TextView(mContext);
+                title.setTextColor(Color.BLACK);
+                title.setGravity(Gravity.CENTER);
+                title.setTypeface(null, Typeface.BOLD);
+                title.setText(marker.getTitle());
+
+                TextView snippet = new TextView(mContext);
+                snippet.setTextColor(Color.GRAY);
+                snippet.setText(marker.getSnippet());
+
+                info.addView(title);
+                info.addView(snippet);
+
+                return info;
+            }
+        });
+    }
+
+
+    @Override
+    public void closeTheDirectionFragment() {
+        if (getSupportFragmentManager().findFragmentById(R.id.frame_container) != null) {
+            getSupportFragmentManager()
+                    .beginTransaction().
+                    remove(getSupportFragmentManager().findFragmentById(R.id.frame_container)).commit();
+        }
 
 
     }
 
-
+    @Override
+    public void getUpdatedData() {
+        if (mDirectionsFragment != null && currentDirectionsTransitModel != null) {
+            mDirectionsFragment.updateDataInAdapter(currentDirectionsTransitModel);
+        }
+    }
 }

@@ -15,7 +15,8 @@ public class DirectionsTransitModel {
 
     public enum RouteType {
         WALKING,
-        TRANSITBUS
+        TRANSITBUS,
+        BIKE
     }
 
     private RouteType typeOfRoute;
@@ -34,6 +35,8 @@ public class DirectionsTransitModel {
     private String endAddress;
     private LatLng endLocation;
 
+    private DirectionsTransitModel mFirstBicycleRoute;
+    private RouteInfo mFirstWalkingRoute;
 
     //polyline
     private String polylinePointsString;
@@ -151,5 +154,22 @@ public class DirectionsTransitModel {
 
     public void setPolylineLatLngPoints(ArrayList<LatLng> polylineLatLngPoints) {
         this.polylineLatLngPoints = polylineLatLngPoints;
+    }
+
+
+    public DirectionsTransitModel getFirstBicycleRoute() {
+        return mFirstBicycleRoute;
+    }
+
+    public void setFirstBicycleRoute(DirectionsTransitModel firstBicycleRoute) {
+        mFirstBicycleRoute = firstBicycleRoute;
+    }
+
+    public RouteInfo getFirstWalkingRoute() {
+        return mFirstWalkingRoute;
+    }
+
+    public void setFirstWalkingRoute(RouteInfo firstWalkingRoute) {
+        mFirstWalkingRoute = firstWalkingRoute;
     }
 }

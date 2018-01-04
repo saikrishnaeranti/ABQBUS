@@ -15,6 +15,7 @@ import java.util.ArrayList;
 
 import edu.unm.albuquerquebus.live.R;
 import edu.unm.albuquerquebus.live.interfaces.RouteInfo;
+import edu.unm.albuquerquebus.live.model.BikeRoute;
 import edu.unm.albuquerquebus.live.model.BusRoute;
 import edu.unm.albuquerquebus.live.model.DirectionsTransitModel;
 import edu.unm.albuquerquebus.live.model.IndividualBusSteps;
@@ -85,7 +86,10 @@ public class DirectionParseJson {
                 } else if (step.getString("travel_mode").equalsIgnoreCase("TRANSIT")) {
                     noOfBuses++;
                     directionsTransitModel.getmListOfRoutes().add(getDetailsOfBusRoute(step, activity));
+                } else if (step.getString("travel_mode").equalsIgnoreCase("DRIVING")) {
+                    directionsTransitModel.getmListOfRoutes().add(getDetailsOfBikeRoute(step, false));
                 }
+
 
 
             }
@@ -104,7 +108,7 @@ public class DirectionParseJson {
      */
     private ArrayList<LatLng> decodePoly(String encoded) {
 
-        ArrayList<LatLng> poly = new ArrayList<LatLng>();
+        ArrayList<LatLng> poly = new ArrayList<>();
         int index = 0, len = encoded.length();
         int lat = 0, lng = 0;
 
@@ -233,10 +237,14 @@ public class DirectionParseJson {
             if (transitDetails.has("departure_stop"))
             individualBusSteps.setDepartureStopName(transitDetails.getJSONObject("departure_stop").getString("name"));
 
-            if (transitDetails.has("departure_time"))
-            individualBusSteps.setDepartureTime(transitDetails.getJSONObject("departure_time").getLong("value"));
-            if (transitDetails.has("arrival_time"))
-            individualBusSteps.setArrivalTime(transitDetails.getJSONObject("arrival_time").getLong("value"));
+            if (transitDetails.has("departure_time")) {
+                individualBusSteps.setDepartureTime(transitDetails.getJSONObject("departure_time").getLong("value"));
+                individualBusSteps.setDepartureTimeString(transitDetails.getJSONObject("departure_time").getString("text"));
+            }
+            if (transitDetails.has("arrival_time")) {
+                individualBusSteps.setArrivalTime(transitDetails.getJSONObject("arrival_time").getLong("value"));
+                individualBusSteps.setArrivalTimeString(transitDetails.getJSONObject("arrival_time").getString("text"));
+            }
 
 
             if (transitDetails.has("headsign"))
@@ -301,7 +309,45 @@ public class DirectionParseJson {
         return walkingRoute;
     }
 
-    public ArrayList<LatLng> getListOfLatLngs(String response) throws JSONException {
+    private RouteInfo getDetailsOfBikeRoute(JSONObject step, boolean individualRoute) throws JSONException {
+
+        Log.d("MAIN Class data", step.toString());
+        BikeRoute bikeRoute = new BikeRoute();
+
+        if (step.has("distance"))
+            bikeRoute.setDistance(step.getJSONObject("distance").getLong("value"));
+        if (step.has("duration"))
+            bikeRoute.setDuration(step.getJSONObject("duration").getLong("value"));
+        if (step.has("start_location"))
+            bikeRoute.setStartLocation(new LatLng(step.getJSONObject("start_location").getDouble("lat"),
+                    step.getJSONObject("start_location").getDouble("lng")));
+        if (step.has("end_location"))
+            bikeRoute.setEndLocation(new LatLng(step.getJSONObject("end_location").getDouble("lat"),
+                    step.getJSONObject("end_location").getDouble("lng")));
+
+        if (step.has("html_instructions"))
+            bikeRoute.setHtmlInstructions(step.getString("html_instructions"));
+        if (step.has("polyline")) {
+            bikeRoute.setPolylinePoints(step.getJSONObject("polyline").getString("points"));
+            bikeRoute.setPolylineLatLngPoints(decodePoly(bikeRoute.getPolylinePoints()));
+        }
+
+        bikeRoute.setIndividualRoute(individualRoute);
+
+        if (!individualRoute) {
+            if (step.has("steps")) {
+                JSONArray tempSteps = step.getJSONArray("steps");
+                for (int j = 0; j < tempSteps.length(); j++) {
+                    JSONObject tempStep = tempSteps.getJSONObject(j);
+                    bikeRoute.getListOfSubRoute().add(getDetailsOfBikeRoute(tempStep, true));
+                }
+            }
+        }
+
+        return bikeRoute;
+    }
+
+    private ArrayList<LatLng> getListOfLatLngs(String response) throws JSONException {
         ArrayList<LatLng> latLngsList = new ArrayList<>();
         JSONObject responseJsonObject = new JSONObject(response);
 

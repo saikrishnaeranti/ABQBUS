@@ -11,10 +11,13 @@ public class BusInfo {
     private String vehicleNumber;
     private String speedInMPH;
     private String nextStop;
+    private String nextStopId;
+    private String tripId;
     private double latitude;
     private double longitude;
 
     private Date msgDateTime;
+    private Date nextStopScheduleTime;
 
     private int direction;
     private double scale;
@@ -23,6 +26,7 @@ public class BusInfo {
 
     public BusInfo() {
     }
+
 
     public BusInfo(String vehicleNumber, String speedInMPH, String nextStop, double latitude, double longitude, Date msgDateTime, int direction, double scale, String busShortName) {
         this.vehicleNumber = vehicleNumber;
@@ -121,5 +125,29 @@ public class BusInfo {
 
     public void setBusShortName(String busShortName) {
         this.busShortName = busShortName;
+    }
+
+    public String getNextStopId() {
+        return nextStopId;
+    }
+
+    public void setNextStopId(String nextStopId) {
+        this.nextStopId = nextStopId;
+    }
+
+    public Date getNextStopScheduleTime() {
+        return nextStopScheduleTime;
+    }
+
+    public void setNextStopScheduleTime(Date nextStopScheduleTime) {
+        this.nextStopScheduleTime = nextStopScheduleTime;
+    }
+
+    public String getTripId() {
+        return tripId;
+    }
+
+    public void setTripId(String tripId) {
+        this.tripId = tripId;
     }
 }

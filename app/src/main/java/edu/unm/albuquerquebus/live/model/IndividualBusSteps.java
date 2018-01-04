@@ -14,10 +14,12 @@ public class IndividualBusSteps {
     private LatLng arrivalStopLocation;
     private String arrivalStopName;
     private long arrivalTime;
+    private String arrivalTimeString;
 
     private LatLng departureStopLocation;
     private String departureStopName;
     private long departureTime;
+    private String departureTimeString;
 
     private String headSign;
 
@@ -122,5 +124,21 @@ public class IndividualBusSteps {
 
     public void setBusInfoList(List<BusInfo> busInfoList) {
         mBusInfoList = busInfoList;
+    }
+
+    public String getArrivalTimeString() {
+        return arrivalTimeString;
+    }
+
+    public void setArrivalTimeString(String arrivalTimeString) {
+        this.arrivalTimeString = arrivalTimeString;
+    }
+
+    public String getDepartureTimeString() {
+        return departureTimeString;
+    }
+
+    public void setDepartureTimeString(String departureTimeString) {
+        this.departureTimeString = departureTimeString;
     }
 }
