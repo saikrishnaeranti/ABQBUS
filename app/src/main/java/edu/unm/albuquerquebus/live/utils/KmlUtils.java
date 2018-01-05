@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 
 import edu.unm.albuquerquebus.live.model.BusInfo;
+import edu.unm.albuquerquebus.live.model.BusRoute;
 import edu.unm.albuquerquebus.live.model.BusStop;
 
 /**
@@ -293,12 +294,16 @@ public class KmlUtils {
                             try {
                                 Date newDate = new SimpleDateFormat("HH:mm:ss").parse(pair3.getKey());
                                 Date oldStartDate = new SimpleDateFormat("HH:mm:ss").parse(startTime);
+                                Date oldEndDate = new SimpleDateFormat("HH:mm:ss").parse(endTime);
 
                                 if (newDate.compareTo(oldStartDate) == -1) {
                                     startTime = new SimpleDateFormat("HH:mm:ss").format(newDate);
                                 }
-                                if (newDate.compareTo(oldStartDate) == 1) {
+                                if (newDate.compareTo(oldEndDate) == 1) {
                                     endTime = new SimpleDateFormat("HH:mm:ss").format(newDate);
+                                    if (endTime.equalsIgnoreCase("23:59:42")) {
+                                        Log.d("Last trip info", pair2.getKey());
+                                    }
                                 }
                             } catch (ParseException e) {
                                 e.printStackTrace();
@@ -347,12 +352,23 @@ public class KmlUtils {
 
     public static void readAllTripsAndBusLocationDataFromAllRouteJson(String response) {
 
+        readAllTripsAndGetRequiredBusLocationDataFromAllRouteJson(response, new ArrayList<BusRoute>());
+
+    }
+
+    public static List<BusInfo> readAllTripsAndGetRequiredBusLocationDataFromAllRouteJson(String response, List<BusRoute> busRouteList) {
+
         final DatabaseReference database = FirebaseDatabase.getInstance().getReference();
+        List<BusInfo> busInfoList = new ArrayList<>();
 
         try {
             JSONObject mainJsonObject = new JSONObject(response);
             JSONArray allRoutesJsonArray = mainJsonObject.getJSONArray(Constants.ALL_ROUTES);
             int sizeOfArray = allRoutesJsonArray.length();
+            Date currentTime = new Date();
+            SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd");
+            String currentdate = DATE_FORMAT.format(currentTime);
+
             for (int i = 0; i < sizeOfArray; i++) {
 
                 BusInfo busInfo = new BusInfo();
@@ -383,13 +399,14 @@ public class KmlUtils {
                 busInfo.setNextStopId(next_stop_id);
                 busInfo.setTripId(trip_id);
 
-                Date msgDate = new SimpleDateFormat("HH:mm:ss").parse(msg_time);
-                Date nextStopScheduleDate = new SimpleDateFormat("HH:mm:ss").parse(next_stop_sched_time);
+                Date msgDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(currentdate + " " + msg_time);
+                Date nextStopScheduleDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(currentdate + " " + next_stop_sched_time);
                 long time = nextStopScheduleDate.getTime();
 
                 busInfo.setMsgDateTime(msgDate);
                 busInfo.setNextStopScheduleTime(nextStopScheduleDate);
 
+                checkAndBusInfoToList(busInfo, busRouteList, busInfoList);
 
                 database.child("bus-running-info").child(route_short_name).child(vehicle_id).setValue(busInfo);
                 database.child("busNumber-with-trips2").child(route_short_name).child(trip_id).child(String.valueOf(next_stop_sched_time)).child(Constants.STOP_ID).setValue(next_stop_id);
@@ -399,11 +416,25 @@ public class KmlUtils {
 
             }
 
-        } catch (JSONException e) {
-            e.printStackTrace();
-        } catch (ParseException e) {
+        } catch (JSONException | ParseException e) {
             e.printStackTrace();
         }
+
+        return busInfoList;
+
+    }
+
+    private static void checkAndBusInfoToList(BusInfo busInfo, List<BusRoute> busRouteList, List<BusInfo> busInfoList) {
+
+        for (BusRoute busRoute :
+                busRouteList) {
+            if (busRoute.getIndividualBusSteps().getBusShortName().equalsIgnoreCase(busInfo.getBusShortName())) {
+                busInfo.setBusColor(busRoute.getIndividualBusSteps().getBusColor());
+                busInfoList.add(busInfo);
+                break;
+            }
+        }
+
     }
 
     public static class BusTripDetails {

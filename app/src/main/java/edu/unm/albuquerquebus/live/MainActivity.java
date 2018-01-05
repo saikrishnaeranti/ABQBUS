@@ -5,7 +5,13 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffColorFilter;
 import android.graphics.Typeface;
 import android.location.Location;
 import android.os.Bundle;
@@ -13,6 +19,7 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentTransaction;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
@@ -129,7 +136,7 @@ public class MainActivity extends AppCompatActivity
 
 
     private int delay = 100; // delay for 100 microsec.
-    private int period = 10000; // repeat every 10 sec.
+    private int period = 14000; // repeat every 14 sec.
     private Timer timer;
 
     private DirectionsTransitModel mPresentDirectionModelWithWalking;
@@ -138,6 +145,8 @@ public class MainActivity extends AppCompatActivity
     private DirectionsFragment mDirectionsFragment;
     private Fragment fragment;
     private DirectionsTransitModel currentDirectionsTransitModel;
+
+    private Map<String, String> busNumberToVehicleNumberMap = new HashMap<>();
 
 
     @Override
@@ -174,7 +183,7 @@ public class MainActivity extends AppCompatActivity
         mMapFragment.getMapAsync(this);
 
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
-        mDestinationRouteDirectionsFragment = (DestinationRouteDirectionsFragment) getSupportFragmentManager().findFragmentById(R.id.destination_route_directions_fragment);
+        //mDestinationRouteDirectionsFragment = (DestinationRouteDirectionsFragment) getSupportFragmentManager().findFragmentById(R.id.destination_route_directions_fragment);
 
         assignLastKnownLocation(mFusedLocationClient);
 
@@ -190,8 +199,9 @@ public class MainActivity extends AppCompatActivity
         if (timer != null) {
             timer.cancel();
         }
-        timer = new Timer();
-        timer.scheduleAtFixedRate(new TimerTask() {
+
+        Timer timer1 = new Timer();
+        timer1.scheduleAtFixedRate(new TimerTask() {
             public void run() {
                 Log.d("counter of timer", String.valueOf(++counter));
                 if (counter % 10 == 0) {
@@ -201,17 +211,36 @@ public class MainActivity extends AppCompatActivity
             }
         }, delay, period);
 
-        final FloatingActionsMenu menuMultipleActions = (FloatingActionsMenu) findViewById(R.id.multiple_actions);
+        final FloatingActionsMenu menuMultipleActions = findViewById(R.id.multiple_actions);
 
         FloatingActionButton searchButton = findViewById(R.id.action_search);
         searchButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-//                if (timeCheckIfBusesAvailable())
-                searchPlaces();
+                if (timeCheckIfBusesAvailable()) {
+                    showTripDetailsFragment();
+                    searchPlaces();
+                }
+
                 menuMultipleActions.collapse();
             }
         });
+
+
+    }
+
+    private void showTripDetailsFragment() {
+
+        //this is code for fragment
+        mDestinationRouteDirectionsFragment = new DestinationRouteDirectionsFragment();
+        fragment = mDestinationRouteDirectionsFragment;
+
+        android.support.v4.app.FragmentManager fragmentManager = getSupportFragmentManager();
+        fragmentManager.beginTransaction().setCustomAnimations(R.anim.activity_animation_push_down_in, R.anim.activity_animation_push_up_out)
+                .replace(R.id.trip_details_frame_container, fragment).commit();
+        fragmentManager.beginTransaction().addToBackStack(null);
+
+        getUpdatedData();
 
 
     }
@@ -328,8 +357,8 @@ public class MainActivity extends AppCompatActivity
 
     private boolean timeCheckIfBusesAvailable() {
 
-        String startTime = "05:24:00";
-        String endTime = "23:12:00";
+        String startTime = "05:16:35";
+        String endTime = "23:59:42";
 
         try {
             Date currentTime = new Date();
@@ -515,14 +544,11 @@ public class MainActivity extends AppCompatActivity
                     if (mDestinationRouteDirectionsFragment != null)
                         mDestinationRouteDirectionsFragment.updateDestinationDetails(currentDirectionsTransitModel);
 
-                    if (timer != null) {
-                        timer.cancel();
-                    }
-                    timer = new Timer();
-                    removeAllPolylineAndMarkers();// This method removes the polylines that are drawn in last search and creates and new ArrayList
-                    drawWalkingAndBusRoutePolylines(currentDirectionsTransitModel);
-                    getBusLocationsAndUpdateInDatabase(currentDirectionsTransitModel);
 
+                    initiateTheTrip();
+                    drawWalkingAndBusRoutePolylines(currentDirectionsTransitModel);
+                    //getBusLocationsAndUpdateInDatabaseFromXML(currentDirectionsTransitModel);
+                    getBusLocationsAndUpdateInDatabaseFromJSON(currentDirectionsTransitModel);
 
                 } catch (JSONException e) {
                     e.printStackTrace();
@@ -547,7 +573,19 @@ public class MainActivity extends AppCompatActivity
         apiCaller.makeStringRequest(MainActivity.this, Request.Method.GET, Constants.GET_MAP_URL, parameters);
     }
 
-    private void getBusLocationsAndUpdateInDatabase(DirectionsTransitModel directionsTransitModel) {
+    public void initiateTheTrip() {
+        if (timer != null) {
+            timer.cancel();
+        }
+        timer = new Timer();
+
+        busNumberToVehicleNumberMap = new HashMap<>();
+        removeAllPolylineAndMarkers();// This method removes the polylines that are drawn in last search and creates and new ArrayList
+
+
+    }
+
+    private void getBusLocationsAndUpdateInDatabaseFromXML(DirectionsTransitModel directionsTransitModel) {
         final List<BusRoute> busRouteList = new ArrayList<>();
         for (RouteInfo routeInfo :
                 directionsTransitModel.getmListOfRoutes()) {
@@ -571,6 +609,201 @@ public class MainActivity extends AppCompatActivity
 
     }
 
+    private void getBusLocationsAndUpdateInDatabaseFromJSON(DirectionsTransitModel directionsTransitModel) {
+        final List<BusRoute> busRouteList = new ArrayList<>();
+        for (RouteInfo routeInfo :
+                directionsTransitModel.getmListOfRoutes()) {
+            if (routeInfo.transitMode().equalsIgnoreCase("TRANSIT")) {
+                busRouteList.add((BusRoute) routeInfo);
+            }
+        }
+
+        if (busRouteList.size() > 0) {
+            timer.scheduleAtFixedRate(new TimerTask() {
+                public void run() {
+
+
+                    makeJSONRequestToGetBusLocation(busRouteList);
+
+                }
+            }, delay, period);
+        } else {
+            Toast.makeText(this, Constants.NO_BUSES_IN_THIS_ROUTE, Toast.LENGTH_SHORT).show();
+        }
+
+
+    }
+
+    private void makeJSONRequestToGetBusLocation(final List<BusRoute> busRouteList) {
+        ApiCaller apiCaller = new ApiCaller();
+        apiCaller.setAfterApiCallResponse(new ApiCaller.AfterApiCallResponse() {
+            @Override
+            public void successResponse(String response, String url) {
+
+                //TODO find the perfect trip and find the vehicle number (it should be done for once and update those buses regularly)
+                List<BusInfo> busInfoList = KmlUtils.readAllTripsAndGetRequiredBusLocationDataFromAllRouteJson(response, busRouteList);
+
+                for (BusInfo busInfo :
+                        busInfoList) {
+                    LatLng markerLatLng = new LatLng(busInfo.getLatitude(), busInfo.getLongitude());
+                    if (mMap != null) {
+                        Context context = MainActivity.this;
+                        int id = context.getResources().getIdentifier("ic_bus_marker_" + busInfo.getBusShortName(), "drawable", context.getPackageName());
+
+                        if (!mMarkerMap.containsKey(busInfo.getVehicleNumber())) {
+
+
+                            Marker marker = mMap.addMarker(new MarkerOptions()
+                                    .position(markerLatLng)
+                                    .title(busInfo.getVehicleNumber() + "," + busInfo.getBusShortName().trim())
+                                    .snippet("TripNumber - " + busInfo.getTripId() + "\n"
+                                            + "Next Stop - " + busInfo.getNextStop() + "\n"
+                                            + " At " + busInfo.getNextStopScheduleTime().toString())
+                                    .icon(BitmapDescriptorFactory.fromResource(id)));
+                            marker.setTag(busInfo);
+                            mMarkerMap.put(busInfo.getVehicleNumber(), marker);
+
+
+                        } else {
+                            Marker marker = mMarkerMap.get(busInfo.getVehicleNumber());
+                            marker.setTitle(busInfo.getVehicleNumber() + "," + busInfo.getBusShortName().trim());
+                            marker.setSnippet("TripNumber - " + busInfo.getTripId() + "\n"
+                                    + "Next Stop - " + busInfo.getNextStop() + "\n"
+                                    + " At " + busInfo.getNextStopScheduleTime().toString());
+                            marker.setIcon(BitmapDescriptorFactory.fromResource(id));
+                            MarkerAnimation.animateMarkerToICS(marker, markerLatLng, new LatLngInterpolator.Spherical());
+                            marker.setTag(busInfo);
+
+
+                        }
+                        //mMap.moveCamera(CameraUpdateFactory.newLatLng(markerLatLng));
+                    }
+                }
+
+                if (busNumberToVehicleNumberMap.size() != busRouteList.size()) {
+                    findTripAndBusNumbersToTrack(busInfoList, busRouteList);
+                } else {
+
+                    Iterator<Map.Entry<String, Marker>> iterator = mMarkerMap.entrySet().iterator();
+                    while (iterator.hasNext()) {
+                        Map.Entry<String, Marker> pair = iterator.next();
+                        Marker marker = pair.getValue();
+                        BusInfo busInfo = (BusInfo) marker.getTag();
+                        String vehicleNumber = busNumberToVehicleNumberMap.get(busInfo.getBusShortName());
+                        if (!vehicleNumber.equalsIgnoreCase(busInfo.getVehicleNumber())) {
+                            marker.remove();
+                        }
+
+                    }
+                }
+
+                // Log.d("MAIN Class data", response);
+            }
+
+            @Override
+            public void errorResponse(VolleyError error, String url) {
+
+                Log.d(TAG, error.getMessage());
+            }
+
+
+        });
+
+
+        apiCaller.makeStringRequest(MainActivity.this, Request.Method.GET, Constants.GET_ALL_ROUTE_JSON, null);
+    }
+
+
+    private Bitmap changeBitmapColor(int color) {
+
+        Bitmap ob = BitmapFactory.decodeResource(this.getResources(), R.drawable.ic_bus_marker);
+        Bitmap obm = Bitmap.createBitmap(ob.getWidth(), ob.getHeight(), Bitmap.Config.ARGB_8888);
+        Bitmap overlay = BitmapFactory.decodeResource(this.getResources(), R.drawable.ic_bus_marker);
+        Bitmap overlaym = Bitmap.createBitmap(overlay.getWidth(), overlay.getHeight(), Bitmap.Config.ARGB_8888);
+
+
+        Canvas canvas = new Canvas(overlaym);
+        Paint paint = new Paint();
+        paint.setColorFilter(new PorterDuffColorFilter(color, PorterDuff.Mode.SRC_ATOP));
+        canvas.drawBitmap(ob, 0f, 0f, paint);
+        canvas.drawBitmap(overlay, 0f, 0f, null);
+        return overlaym;
+    }
+
+    private void findTripAndBusNumbersToTrack(final List<BusInfo> busInfoList, List<BusRoute> busRouteList) {
+
+
+        final DatabaseReference database = FirebaseDatabase.getInstance().getReference();
+        for (final BusRoute busRoute : busRouteList
+                ) {
+            if (!busNumberToVehicleNumberMap.containsKey(busRoute.getIndividualBusSteps().getBusShortName())) {
+                Query query = database.child("busNumber-with-trips2").child(busRoute.getIndividualBusSteps().getBusShortName().trim());
+                long arrivalTime = busRoute.getIndividualBusSteps().getArrivalTime();
+                long departTime = busRoute.getIndividualBusSteps().getDepartureTime();
+                Date date = new Date(departTime * 1000);
+                final String departStationName = busRoute.getIndividualBusSteps().getDepartureStopName();
+
+
+                Log.d("departTime", date.toString());
+
+                DateFormat df = new SimpleDateFormat("HH:mm:ss");
+                df.setTimeZone(TimeZone.getTimeZone("MST"));
+                final String departTimeString = df.format(date).trim();
+                Log.d("departTime", busRoute.getIndividualBusSteps().getBusShortName() + "-" + departTimeString);
+
+                query.addListenerForSingleValueEvent(new ValueEventListener() {
+
+                    @Override
+                    public void onDataChange(DataSnapshot dataSnapshot) {
+
+                        Map<String, HashMap<String, HashMap<String, String>>> mapofBusNumberAndTripDetails = (Map<String, HashMap<String, HashMap<String, String>>>) dataSnapshot.getValue();
+
+                        Log.d("tripss", String.valueOf(mapofBusNumberAndTripDetails.size()));
+
+                        Iterator<Map.Entry<String, HashMap<String, HashMap<String, String>>>> it = mapofBusNumberAndTripDetails.entrySet().iterator();
+
+                        String finalTrip = "";
+                        while (it.hasNext()) {
+                            Map.Entry<String, HashMap<String, HashMap<String, String>>> pair = it.next();
+                            //Log.d("tripss", pair.getKey() + " = " + pair.getValue());
+                            HashMap<String, HashMap<String, String>> singleBusTripDetailsHashMap = pair.getValue();
+
+                            if (singleBusTripDetailsHashMap.containsKey(departTimeString)) {
+                                HashMap<String, String> busMap = singleBusTripDetailsHashMap.get(departTimeString);
+                                String stopName = busMap.get("stop_name");
+                                if (stopName.equalsIgnoreCase(departStationName)) {
+                                    finalTrip = pair.getKey();
+                                    break;
+                                }
+
+                            }
+                            it.remove(); // avoids a ConcurrentModificationException
+                        }
+
+                        Log.d("finalTrip", finalTrip);
+
+                        for (BusInfo busInfo :
+                                busInfoList) {
+                            if (busInfo.getTripId().equalsIgnoreCase(finalTrip)) {
+                                busNumberToVehicleNumberMap.put(busRoute.getIndividualBusSteps().getBusShortName(), busInfo.getVehicleNumber());
+                            }
+                        }
+
+
+                    }
+
+                    @Override
+                    public void onCancelled(DatabaseError databaseError) {
+
+                    }
+                });
+
+            }
+        }
+
+
+    }
+
     private void makeRequestToGetBusLocation(final BusRoute busRoute) {
         ApiCaller apiCaller = new ApiCaller();
         apiCaller.setAfterApiCallResponse(new ApiCaller.AfterApiCallResponse() {
@@ -589,13 +822,17 @@ public class MainActivity extends AppCompatActivity
                         if (!mMarkerMap.containsKey(busInfo.getVehicleNumber())) {
                             mMarkerMap.put(busInfo.getVehicleNumber(), mMap.addMarker(new MarkerOptions()
                                     .position(markerLatLng)
-                                    .title(busInfo.getVehicleNumber() + "," + busInfo.getBusShortName().trim())
-                                    .snippet(busInfo.toString())
+                                    .title(busInfo.getVehicleNumber() + "-" + busInfo.getBusShortName().trim())
+                                    .snippet("TripNumber - " + busInfo.getTripId() + "\n"
+                                            + "Next Stop - " + busInfo.getNextStop() + "\n"
+                                            + " At " + busInfo.getNextStopScheduleTime().toString())
                                     .icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_bus_marker))));
                         } else {
                             Marker marker = mMarkerMap.get(busInfo.getVehicleNumber());
-                            marker.setTitle(busInfo.getVehicleNumber() + "," + busInfo.getBusShortName().trim());
-                            marker.setSnippet(busInfo.toString());
+                            marker.setTitle(busInfo.getVehicleNumber() + "-" + busInfo.getBusShortName().trim());
+                            marker.setSnippet("TripNumber - " + busInfo.getTripId() + "\n"
+                                    + "Next Stop - " + busInfo.getNextStop() + "\n"
+                                    + " At " + busInfo.getNextStopScheduleTime().toString());
                             marker.setIcon(BitmapDescriptorFactory.fromResource(R.drawable.ic_bus_marker));
                             MarkerAnimation.animateMarkerToICS(marker, markerLatLng, new LatLngInterpolator.Spherical());
                         }
@@ -665,15 +902,6 @@ public class MainActivity extends AppCompatActivity
                             }
                         }
 
-                        for (DataSnapshot data : dataSnapshot.getChildren()) {
-
-                            for (DataSnapshot data1 : data.getChildren()
-                                    ) {
-                                //Log.d("tripss", data1.toString());
-
-                            }
-
-                        }
 
                     }
 
@@ -875,8 +1103,8 @@ public class MainActivity extends AppCompatActivity
             fragment = mDirectionsFragment;
 
             android.support.v4.app.FragmentManager fragmentManager = getSupportFragmentManager();
-            fragmentManager.beginTransaction()
-                    .replace(R.id.frame_container, fragment).commit();
+            fragmentManager.beginTransaction().setCustomAnimations(R.anim.activity_animation_push_down_in, R.anim.activity_animation_push_up_out)
+                    .replace(R.id.directions_frame_container, fragment).commit();
             fragmentManager.beginTransaction().addToBackStack(null);
 
             getUpdatedData();
@@ -894,6 +1122,23 @@ public class MainActivity extends AppCompatActivity
     public void showWalkPolyLines() {
         if (currentDirectionsTransitModel != null) {
             drawWalkingAndBusRoutePolylines(currentDirectionsTransitModel);
+        }
+    }
+
+    @Override
+    public void closeTripDetailsFragment() {
+        if (mDestinationRouteDirectionsFragment != null) {
+            if (getSupportFragmentManager().findFragmentById(R.id.trip_details_frame_container) != null) {
+                FragmentTransaction fragmentTransaction = getSupportFragmentManager().beginTransaction();
+                fragmentTransaction.setCustomAnimations(R.anim.activity_animation_push_down_in, R.anim.activity_animation_push_up_out);
+
+
+                fragmentTransaction.remove(getSupportFragmentManager().findFragmentById(R.id.trip_details_frame_container)).commit();
+            }
+            mDestinationRouteDirectionsFragment = null;
+            currentDirectionsTransitModel = null;
+            removeAllPolylineAndMarkers();
+
         }
     }
 
@@ -934,10 +1179,12 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public void closeTheDirectionFragment() {
-        if (getSupportFragmentManager().findFragmentById(R.id.frame_container) != null) {
-            getSupportFragmentManager()
-                    .beginTransaction().
-                    remove(getSupportFragmentManager().findFragmentById(R.id.frame_container)).commit();
+        if (getSupportFragmentManager().findFragmentById(R.id.directions_frame_container) != null) {
+            FragmentTransaction fragmentTransaction = getSupportFragmentManager().beginTransaction();
+            fragmentTransaction.setCustomAnimations(R.anim.activity_animation_push_down_in, R.anim.activity_animation_push_up_out);
+
+
+            fragmentTransaction.remove(getSupportFragmentManager().findFragmentById(R.id.directions_frame_container)).commit();
         }
 
 
@@ -947,6 +1194,14 @@ public class MainActivity extends AppCompatActivity
     public void getUpdatedData() {
         if (mDirectionsFragment != null && currentDirectionsTransitModel != null) {
             mDirectionsFragment.updateDataInAdapter(currentDirectionsTransitModel);
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (timer != null) {
+            timer.cancel();
         }
     }
 }

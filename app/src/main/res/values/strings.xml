@@ -17,4 +17,5 @@
     <string name="transitmode">TransitMode</string>
     <string name="sample_bus_number">66</string>
     <string name="sample_time">6:59pm</string>
+    <string name="close">Close</string>
 </resources>

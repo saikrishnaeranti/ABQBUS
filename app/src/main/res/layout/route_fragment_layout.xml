@@ -117,7 +117,7 @@
 
                     <LinearLayout
                         android:layout_width="wrap_content"
-                        android:layout_height="match_parent"
+                        android:layout_height="wrap_content"
                         android:orientation="horizontal">
 
                         <LinearLayout
@@ -215,6 +215,7 @@
                             android:layout_marginRight="4dp"
                             android:orientation="vertical">
 
+
                             <TextView
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
@@ -234,6 +235,38 @@
 
 
                         </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="match_parent"
+                            android:layout_marginEnd="4dp"
+                            android:layout_marginRight="4dp"
+                            android:orientation="vertical">
+
+
+                            <android.support.design.widget.FloatingActionButton
+                                android:id="@+id/close_fab"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_margin="@dimen/fab_margin_fragment"
+                                android:clickable="true"
+                                android:contentDescription="@string/bicycle_icon"
+                                fab:fabSize="mini"
+                                fab:srcCompat="@drawable/ic_action_close"
+                                fab:backgroundTint="@color/white"
+                                android:focusable="true"/>
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:layout_gravity="center_horizontal"
+                                android:gravity="center"
+                                android:text="@string/close"
+                                android:textAlignment="center"/>
+
+
+                        </LinearLayout>
+
 
                     </LinearLayout>
 

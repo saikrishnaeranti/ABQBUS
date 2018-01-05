@@ -15,10 +15,11 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <fragment android:name="edu.unm.albuquerquebus.live.fragments.DestinationRouteDirectionsFragment"
-        android:id="@+id/destination_route_directions_fragment"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content" />
+        <!--<fragment android:name="edu.unm.albuquerquebus.live.fragments.DestinationRouteDirectionsFragment"-->
+        <!--android:id="@+id/destination_route_directions_fragment"-->
+        <!--android:layout_width="wrap_content"-->
+        <!--android:layout_height="wrap_content" />-->
+
 
         <!--<fragment-->
         <!--android:id="@+id/directionsFragment"-->
@@ -28,10 +29,18 @@
         <!--android:layout_height="match_parent"/>-->
 
         <FrameLayout
-            android:id="@+id/frame_container"
+            android:id="@+id/trip_details_frame_container"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_below="@+id/destination_route_directions_fragment"
+            >
+
+        </FrameLayout>
+
+        <FrameLayout
+            android:id="@+id/directions_frame_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_below="@+id/trip_details_frame_container"
             >
 
         </FrameLayout>

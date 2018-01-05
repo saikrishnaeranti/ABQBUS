@@ -90,11 +90,22 @@ public class DestinationRouteDirectionsFragment extends Fragment {
 
         mBicycleTimeTextView = view.findViewById(R.id.bicycle_time);
 
-        final FloatingActionButton mBicycleFabButton = view.findViewById(R.id.bike_fab);
+        final FloatingActionButton bicycleFabButton = view.findViewById(R.id.bike_fab);
 
 
-        final FloatingActionButton mWalkFabButton = view.findViewById(R.id.walk_fab);
-        mWalkFabButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.colorPrimary)));
+        final FloatingActionButton walkFabButton = view.findViewById(R.id.walk_fab);
+        final FloatingActionButton closeFabButton = view.findViewById(R.id.close_fab);
+        closeFabButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (mListener != null) {
+                    mListener.closeTripDetailsFragment();
+                }
+            }
+        });
+
+
+        walkFabButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.colorPrimary)));
 
         FloatingActionButton directionsFabButton = view.findViewById(R.id.direction_fab);
         directionsFabButton.setOnClickListener(new View.OnClickListener() {
@@ -105,22 +116,22 @@ public class DestinationRouteDirectionsFragment extends Fragment {
                 }
             }
         });
-        mBicycleFabButton.setOnClickListener(new View.OnClickListener() {
+        bicycleFabButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 if (mListener != null) {
-                    mBicycleFabButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.colorPrimary)));
-                    mWalkFabButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.white)));
+                    bicycleFabButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.colorPrimary)));
+                    walkFabButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.white)));
                     mListener.showBicyclePolyLines();
                 }
             }
         });
-        mWalkFabButton.setOnClickListener(new View.OnClickListener() {
+        walkFabButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 if (mListener != null) {
-                    mBicycleFabButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.white)));
-                    mWalkFabButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.colorPrimary)));
+                    bicycleFabButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.white)));
+                    walkFabButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.colorPrimary)));
                     mListener.showWalkPolyLines();
                 }
             }
@@ -230,5 +241,7 @@ public class DestinationRouteDirectionsFragment extends Fragment {
         void showBicyclePolyLines();
 
         void showWalkPolyLines();
+
+        void closeTripDetailsFragment();
     }
 }

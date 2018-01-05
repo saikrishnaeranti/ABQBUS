@@ -24,6 +24,8 @@ public class BusInfo {
 
     private String busShortName;
 
+    private String busColor;
+
     public BusInfo() {
     }
 
@@ -149,5 +151,13 @@ public class BusInfo {
 
     public void setTripId(String tripId) {
         this.tripId = tripId;
+    }
+
+    public String getBusColor() {
+        return busColor;
+    }
+
+    public void setBusColor(String busColor) {
+        this.busColor = busColor;
     }
 }
