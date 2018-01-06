@@ -88,7 +88,7 @@
                             android:focusable="true"
                             fab:backgroundTint="@android:color/holo_red_light"
                             fab:fabSize="mini"
-                            fab:srcCompat="@drawable/ic_action_close"/>
+                            fab:srcCompat="@drawable/ic_close_white"/>
 
                         <TextView
                             android:layout_width="match_parent"
@@ -300,14 +300,14 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/depart"
-                            android:textSize="20sp"
+                            android:textSize="16sp"
                             />
 
                         <TextView
                             android:id="@+id/depart_at"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:textSize="20sp"
+                            android:textSize="16sp"
 
                             />
                     </LinearLayout>
@@ -324,14 +324,14 @@
                             android:layout_height="wrap_content"
                             android:text="@string/arrive"
 
-                            android:textSize="20sp"
+                            android:textSize="16sp"
                             />
 
                         <TextView
                             android:id="@+id/arrive_at"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:textSize="20sp"
+                            android:textSize="16sp"
 
 
                             />
@@ -351,7 +351,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/trip_completed"
-                            android:textSize="20sp"
+                            android:textSize="16sp"
                             android:visibility="gone"
                             android:padding="8dp"
                             android:background="@android:color/holo_red_light"

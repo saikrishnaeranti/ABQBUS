@@ -27,6 +27,8 @@ import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
@@ -157,6 +159,7 @@ public class MainActivity extends AppCompatActivity
     private Timer timer1;
     private RelativeLayout loadingProgressBarLayout;
     private AVLoadingIndicatorView loadingProgressBar;
+    private FloatingActionButton searchFabButton;
 
 
     @Override
@@ -223,8 +226,8 @@ public class MainActivity extends AppCompatActivity
 
         final FloatingActionsMenu menuMultipleActions = findViewById(R.id.multiple_actions);
 
-        FloatingActionButton searchButton = findViewById(R.id.action_search);
-        searchButton.setOnClickListener(new View.OnClickListener() {
+        searchFabButton = findViewById(R.id.action_search);
+        searchFabButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 if (timeCheckIfBusesAvailable()) {
@@ -572,7 +575,7 @@ public class MainActivity extends AppCompatActivity
             timer.cancel();
         }
         timer = new Timer();
-
+        vehicleNumberToTripNumberMap = new HashMap<>();
         busNumberToVehicleNumberMap = new HashMap<>();
         vehicleNumberToTripDetailsMap = new HashMap<>();
         removeAllPolylineAndMarkers();// This method removes the polylines that are drawn in last search and creates and new ArrayList
@@ -623,6 +626,7 @@ public class MainActivity extends AppCompatActivity
                 }
             }, delay, period);
         } else {
+            hideProgressBarLayout();
             Toast.makeText(this, Constants.NO_BUSES_IN_THIS_ROUTE, Toast.LENGTH_SHORT).show();
         }
 
@@ -757,6 +761,12 @@ public class MainActivity extends AppCompatActivity
                             timer.cancel();
                             timer = null;
                         }
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                mDestinationRouteDirectionsFragment.showTripCompletedTextView();
+                            }
+                        });
 
 
                     }
@@ -934,7 +944,7 @@ public class MainActivity extends AppCompatActivity
                                 SharedPreferences pref = getApplicationContext().getSharedPreferences(Constants.SHARED_PREFERENCE_KEY, MODE_PRIVATE);
                                 SharedPreferences.Editor editor = pref.edit();
                                 Log.d("ABC", "Destination Stop - " + busRoute.getIndividualBusSteps().getDepartureStopName());
-                                editor.putString(busRoute.getIndividualBusSteps().getBusShortName(), busRoute.getIndividualBusSteps().getDepartureStopName());  // Saving string
+                                editor.putString(busRoute.getIndividualBusSteps().getBusShortName(), busRoute.getIndividualBusSteps().getArrivalStopName());  // Saving string
 
                                 // Save the changes in SharedPreferences
                                 editor.apply(); // commit changes
@@ -1193,7 +1203,20 @@ public class MainActivity extends AppCompatActivity
             fragmentManager.beginTransaction().addToBackStack(null);
 
             getUpdatedData();
+            hideSearchFab();
         }
+    }
+
+    private void hideSearchFab() {
+        Animation animFadeOut = AnimationUtils.loadAnimation(this, R.anim.activity_animation_fade_out);
+        searchFabButton.startAnimation(animFadeOut);
+        searchFabButton.setVisibility(View.GONE);
+    }
+
+    private void showSearchFab() {
+        Animation animFadeIn = AnimationUtils.loadAnimation(this, R.anim.activity_animation_fade_in);
+        searchFabButton.startAnimation(animFadeIn);
+        searchFabButton.setVisibility(View.VISIBLE);
     }
 
     @Override
@@ -1280,7 +1303,7 @@ public class MainActivity extends AppCompatActivity
             fragmentTransaction.remove(getSupportFragmentManager().findFragmentById(R.id.directions_frame_container)).commit();
             mDirectionsFragment = null;
         }
-
+        showSearchFab();
 
     }
 

@@ -53,6 +53,7 @@ public class DestinationRouteDirectionsFragment extends Fragment {
     private FloatingActionButton directionsFabButton;
     private TextView mArriveAtTextView;
     private TextView mDepartAtTextView;
+    private TextView mTripCompletedTextView;
 
     public DestinationRouteDirectionsFragment() {
         // Required empty public constructor
@@ -103,6 +104,8 @@ public class DestinationRouteDirectionsFragment extends Fragment {
 
         mDepartAtTextView = view.findViewById(R.id.depart_at);
         mArriveAtTextView = view.findViewById(R.id.arrive_at);
+
+        mTripCompletedTextView = view.findViewById(R.id.trip_completed);
 
         final FloatingActionButton bicycleFabButton = view.findViewById(R.id.bike_fab);
 
@@ -238,6 +241,7 @@ public class DestinationRouteDirectionsFragment extends Fragment {
                 TextView busExtraTimingTextView = view.findViewById(R.id.bus_extra_time);
                 busNoTextView.setText(busRoute.getIndividualBusSteps().getBusShortName());
                 busTimingTextView.setText(busRoute.getIndividualBusSteps().getDepartureTimeString());
+                busTimingTextView.setTag(busRoute);
                 busExtraTimingTextView.setVisibility(View.GONE);
                 mMapOfBusNumberToExtraTimeTextView.put(busRoute.getIndividualBusSteps().getBusShortName(), busExtraTimingTextView);
                 mBusLinearLayout.addView(view);
@@ -257,6 +261,7 @@ public class DestinationRouteDirectionsFragment extends Fragment {
         if (mMapOfBusNumberToExtraTimeTextView.containsKey(busInfo.getBusShortName())) {
             TextView busExtraTimingTextView = mMapOfBusNumberToExtraTimeTextView.get(busInfo.getBusShortName());
             Date currentTime = new Date();
+            // Date busBoardedTime
             Date scheduledTime = busInfo.getNextStopScheduleTime();
 
             long diff = currentTime.getTime() - scheduledTime.getTime();
@@ -278,6 +283,10 @@ public class DestinationRouteDirectionsFragment extends Fragment {
 
     public void resetColorOfDirectionFab() {
         directionsFabButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.white)));
+    }
+
+    public void showTripCompletedTextView() {
+        mTripCompletedTextView.setVisibility(View.VISIBLE);
     }
 
     /**
