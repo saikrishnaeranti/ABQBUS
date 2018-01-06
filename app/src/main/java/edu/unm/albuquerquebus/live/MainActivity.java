@@ -4,6 +4,7 @@ import android.Manifest;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -70,6 +71,7 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
+import com.wang.avi.AVLoadingIndicatorView;
 
 import org.json.JSONException;
 
@@ -103,6 +105,8 @@ import edu.unm.albuquerquebus.live.utils.MarkerAnimation;
 import edu.unm.albuquerquebus.live.utils.XMLPullParserHandler;
 import io.fabric.sdk.android.Fabric;
 
+import static edu.unm.albuquerquebus.live.utils.KmlUtils.addCurrentDateToTime;
+
 public class MainActivity extends AppCompatActivity
         implements OnMapReadyCallback, GoogleMap.OnMyLocationButtonClickListener,
         GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener,
@@ -133,6 +137,7 @@ public class MainActivity extends AppCompatActivity
 
     private List<Polyline> mListOfPolyLines;
     private Map<String, Marker> mMarkerMap;
+    private Map<String, BusInfo> mVehicleNumberToBusInfoMap = new HashMap<>();
 
 
     private int delay = 100; // delay for 100 microsec.
@@ -147,6 +152,11 @@ public class MainActivity extends AppCompatActivity
     private DirectionsTransitModel currentDirectionsTransitModel;
 
     private Map<String, String> busNumberToVehicleNumberMap = new HashMap<>();
+    private Map<String, HashMap<String, HashMap<String, String>>> vehicleNumberToTripDetailsMap = new HashMap<>();
+    private Map<String, String> vehicleNumberToTripNumberMap = new HashMap<>();
+    private Timer timer1;
+    private RelativeLayout loadingProgressBarLayout;
+    private AVLoadingIndicatorView loadingProgressBar;
 
 
     @Override
@@ -174,7 +184,7 @@ public class MainActivity extends AppCompatActivity
 //        KmlUtils.readFromDatabaseGetTripsForEachRoute(busStopList,this);
 
         // Get start and end time of buses
-        KmlUtils.findStartAndEndTimeOfEachBus();
+//        KmlUtils.findStartAndEndTimeOfEachBus();
         // Get the SupportMapFragment and request notification
 
         // when the map is ready to be used.
@@ -200,16 +210,16 @@ public class MainActivity extends AppCompatActivity
             timer.cancel();
         }
 
-        Timer timer1 = new Timer();
-        timer1.scheduleAtFixedRate(new TimerTask() {
-            public void run() {
-                Log.d("counter of timer", String.valueOf(++counter));
-                if (counter % 10 == 0) {
-                    System.gc();
-                }
-                getAllRouteJson();
-            }
-        }, delay, period);
+//        timer1 = new Timer();
+//        timer1.scheduleAtFixedRate(new TimerTask() {
+//            public void run() {
+//                Log.d("counter of timer", String.valueOf(++counter));
+//                if (counter % 10 == 0) {
+//                    System.gc();
+//                }
+//                getAllRouteJson();
+//            }
+//        }, delay, period);
 
         final FloatingActionsMenu menuMultipleActions = findViewById(R.id.multiple_actions);
 
@@ -218,13 +228,16 @@ public class MainActivity extends AppCompatActivity
             @Override
             public void onClick(View v) {
                 if (timeCheckIfBusesAvailable()) {
-                    showTripDetailsFragment();
+
                     searchPlaces();
                 }
 
                 menuMultipleActions.collapse();
             }
         });
+
+        loadingProgressBarLayout = findViewById(R.id.loading_indicator_layout);
+        loadingProgressBar = findViewById(R.id.avi);
 
 
     }
@@ -241,6 +254,7 @@ public class MainActivity extends AppCompatActivity
         fragmentManager.beginTransaction().addToBackStack(null);
 
         getUpdatedData();
+        showProgressBarLayout();
 
 
     }
@@ -274,6 +288,7 @@ public class MainActivity extends AppCompatActivity
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             // TODO: Consider calling
+            requestForLocationPermission();
             return;
         }
         mFusedLocationClient.getLastLocation()
@@ -328,33 +343,6 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-//    @Override
-//    public boolean onCreateOptionsMenu(Menu menu) {
-//        MenuInflater inflater = getMenuInflater();
-//        inflater.inflate(R.menu.mainmenu, menu);
-//        return true;
-//    }
-//
-//    @Override
-//    public boolean onOptionsItemSelected(MenuItem item) {
-//        switch (item.getItemId()) {
-//            // action with ID action_refresh was selected
-//            case R.id.action_search:
-//
-//
-//                break;
-//            /*// action with ID action_settings was selected
-//            case R.id.action_settings:
-//                Toast.makeText(this, "Settings selected", Toast.LENGTH_SHORT)
-//                        .show();
-//                break;*/
-//            default:
-//                break;
-//        }
-//
-//        return true;
-//    }
-
     private boolean timeCheckIfBusesAvailable() {
 
         String startTime = "05:16:35";
@@ -404,47 +392,47 @@ public class MainActivity extends AppCompatActivity
             rlp.addRule(RelativeLayout.ALIGN_PARENT_END, 0);
             rlp.addRule(RelativeLayout.ALIGN_END, 0);
             rlp.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
-            rlp.setMargins(30, 0, 0, 40);
+            rlp.setMargins(0, 0, 30, 30);
 
         }
-
-
-        // Add a marker in Sydney and move the camera
-        /*LatLng sydney = new LatLng(-34, 151);
-        mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));*/
 
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
             mMap.setMyLocationEnabled(true);
         } else {
-            // Should we show an explanation?
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
-                    Manifest.permission.ACCESS_FINE_LOCATION)) {
-
-                // Show an explanation to the user *asynchronously* -- don't block
-                // this thread waiting for the user's response! After the user
-                // sees the explanation, try again to request the permission.
-                showMessageOKCancel("You need to allow access to Location",
-                        new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                ActivityCompat.requestPermissions(MainActivity.this,
-                                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                                        MY_LOCATION_REQUEST_CODE);
-                            }
-                        });
-                return;
-            } else {
-                ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                        MY_LOCATION_REQUEST_CODE);
-
-            }
+            requestForLocationPermission();
         }
         mapInitialize();
 
+    }
+
+    private void requestForLocationPermission() {
+        // Should we show an explanation?
+        if (ActivityCompat.shouldShowRequestPermissionRationale(this,
+                Manifest.permission.ACCESS_FINE_LOCATION)) {
+
+            // Show an explanation to the user *asynchronously* -- don't block
+            // this thread waiting for the user's response! After the user
+            // sees the explanation, try again to request the permission.
+            showMessageOKCancel("You need to allow access to Location",
+                    new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            ActivityCompat.requestPermissions(MainActivity.this,
+                                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                                    MY_LOCATION_REQUEST_CODE);
+                            dialog.dismiss();
+
+                        }
+                    });
+            return;
+        } else {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                    MY_LOCATION_REQUEST_CODE);
+
+        }
     }
 
     private void showMessageOKCancel(String message, DialogInterface.OnClickListener okListener) {
@@ -460,10 +448,8 @@ public class MainActivity extends AppCompatActivity
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         if (requestCode == MY_LOCATION_REQUEST_CODE) {
             Log.d("MyApp", String.valueOf(permissions.length));
-            Log.d("MyApp", String.valueOf(permissions[0]));
-            Log.d("MyApp", String.valueOf(grantResults[0]));
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-
+                requestForLocationPermission();
                 return;
             }
             mMap.setMyLocationEnabled(true);
@@ -496,13 +482,8 @@ public class MainActivity extends AppCompatActivity
                 mDestinationAddress = place.getName().toString() + ", " + place.getAddress().toString();
                 String name = place.getName().toString();
                 if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                    // TODO: Consider calling
-                    //    ActivityCompat#requestPermissions
-                    // here to request the missing permissions, and then overriding
-                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                    //                                          int[] grantResults)
-                    // to handle the case where the user grants the permission. See the documentation
-                    // for ActivityCompat#requestPermissions for more details.
+
+                    requestForLocationPermission();
                     return;
                 }
                 Location lastKnowLocation = LocationServices.FusedLocationApi
@@ -519,7 +500,7 @@ public class MainActivity extends AppCompatActivity
 
             } else if (resultCode == PlaceAutocomplete.RESULT_ERROR) {
                 Status status = PlaceAutocomplete.getStatus(this, data);
-                // TODO: Handle the error.
+
                 Log.i(TAG, status.getStatusMessage());
 
             } else if (resultCode == RESULT_CANCELED) {
@@ -535,14 +516,16 @@ public class MainActivity extends AppCompatActivity
             public void successResponse(String response, String url) {
 
                 try {
+                    showTripDetailsFragment();
+
                     currentDirectionsTransitModel = new DirectionParseJson().parseRoute(response, MainActivity.this);
                     /*if (currentDirectionsTransitModel.getEndAddress() == null || currentDirectionsTransitModel.getEndAddress().length() == 0) {
                         currentDirectionsTransitModel.setEndAddress(mDestinationAddress);
                     }*/
                     currentDirectionsTransitModel.setEndAddress(mDestinationAddress);
                     getTimeForBicycleForBusStop(currentDirectionsTransitModel);
-                    if (mDestinationRouteDirectionsFragment != null)
-                        mDestinationRouteDirectionsFragment.updateDestinationDetails(currentDirectionsTransitModel);
+//                    if (mDestinationRouteDirectionsFragment != null)
+//                        mDestinationRouteDirectionsFragment.updateDestinationDetails(currentDirectionsTransitModel);
 
 
                     initiateTheTrip();
@@ -573,6 +556,17 @@ public class MainActivity extends AppCompatActivity
         apiCaller.makeStringRequest(MainActivity.this, Request.Method.GET, Constants.GET_MAP_URL, parameters);
     }
 
+    private void showProgressBarLayout() {
+        loadingProgressBarLayout.setVisibility(View.VISIBLE);
+        loadingProgressBar.smoothToShow();
+    }
+
+    private void hideProgressBarLayout() {
+        loadingProgressBar.smoothToHide();
+        loadingProgressBarLayout.setVisibility(View.GONE);
+
+    }
+
     public void initiateTheTrip() {
         if (timer != null) {
             timer.cancel();
@@ -580,6 +574,7 @@ public class MainActivity extends AppCompatActivity
         timer = new Timer();
 
         busNumberToVehicleNumberMap = new HashMap<>();
+        vehicleNumberToTripDetailsMap = new HashMap<>();
         removeAllPolylineAndMarkers();// This method removes the polylines that are drawn in last search and creates and new ArrayList
 
 
@@ -642,41 +637,10 @@ public class MainActivity extends AppCompatActivity
 
                 //TODO find the perfect trip and find the vehicle number (it should be done for once and update those buses regularly)
                 List<BusInfo> busInfoList = KmlUtils.readAllTripsAndGetRequiredBusLocationDataFromAllRouteJson(response, busRouteList);
-
-                for (BusInfo busInfo :
-                        busInfoList) {
-                    LatLng markerLatLng = new LatLng(busInfo.getLatitude(), busInfo.getLongitude());
-                    if (mMap != null) {
-                        Context context = MainActivity.this;
-                        int id = context.getResources().getIdentifier("ic_bus_marker_" + busInfo.getBusShortName(), "drawable", context.getPackageName());
-
-                        if (!mMarkerMap.containsKey(busInfo.getVehicleNumber())) {
-
-
-                            Marker marker = mMap.addMarker(new MarkerOptions()
-                                    .position(markerLatLng)
-                                    .title(busInfo.getVehicleNumber() + "," + busInfo.getBusShortName().trim())
-                                    .snippet("TripNumber - " + busInfo.getTripId() + "\n"
-                                            + "Next Stop - " + busInfo.getNextStop() + "\n"
-                                            + " At " + busInfo.getNextStopScheduleTime().toString())
-                                    .icon(BitmapDescriptorFactory.fromResource(id)));
-                            marker.setTag(busInfo);
-                            mMarkerMap.put(busInfo.getVehicleNumber(), marker);
-
-
-                        } else {
-                            Marker marker = mMarkerMap.get(busInfo.getVehicleNumber());
-                            marker.setTitle(busInfo.getVehicleNumber() + "," + busInfo.getBusShortName().trim());
-                            marker.setSnippet("TripNumber - " + busInfo.getTripId() + "\n"
-                                    + "Next Stop - " + busInfo.getNextStop() + "\n"
-                                    + " At " + busInfo.getNextStopScheduleTime().toString());
-                            marker.setIcon(BitmapDescriptorFactory.fromResource(id));
-                            MarkerAnimation.animateMarkerToICS(marker, markerLatLng, new LatLngInterpolator.Spherical());
-                            marker.setTag(busInfo);
-
-
-                        }
-                        //mMap.moveCamera(CameraUpdateFactory.newLatLng(markerLatLng));
+                if (mMap != null) {
+                    for (BusInfo busInfo :
+                            busInfoList) {
+                        addOrUpdateMarker(busInfo);
                     }
                 }
 
@@ -691,13 +655,22 @@ public class MainActivity extends AppCompatActivity
                         BusInfo busInfo = (BusInfo) marker.getTag();
                         String vehicleNumber = busNumberToVehicleNumberMap.get(busInfo.getBusShortName());
                         if (!vehicleNumber.equalsIgnoreCase(busInfo.getVehicleNumber())) {
+
                             marker.remove();
+                        } else {
+                            busInfo.getTripDetailsMap().putAll(vehicleNumberToTripDetailsMap.get(busInfo.getVehicleNumber()));
+                            KmlUtils.convertMapIntoArrayOfObjects(busInfo, vehicleNumberToTripDetailsMap.get(busInfo.getVehicleNumber()));
+                            mDestinationRouteDirectionsFragment.updateDelayTime(busInfo);
+
                         }
 
                     }
+
+                    changeGetDataFromJsonToXML(busNumberToVehicleNumberMap);
+
                 }
 
-                // Log.d("MAIN Class data", response);
+                hideProgressBarLayout();
             }
 
             @Override
@@ -711,6 +684,174 @@ public class MainActivity extends AppCompatActivity
 
 
         apiCaller.makeStringRequest(MainActivity.this, Request.Method.GET, Constants.GET_ALL_ROUTE_JSON, null);
+    }
+
+    private Marker addOrUpdateMarker(BusInfo busInfo) {
+        Context context = MainActivity.this;
+        int id = context.getResources().getIdentifier("ic_bus_marker_" + busInfo.getBusShortName(), "drawable", context.getPackageName());
+        LatLng markerLatLng = new LatLng(busInfo.getLatitude(), busInfo.getLongitude());
+        Marker marker;
+        if (!mMarkerMap.containsKey(busInfo.getVehicleNumber())) {
+
+
+            marker = mMap.addMarker(new MarkerOptions()
+                    .position(markerLatLng)
+                    .title(busInfo.getBusShortName().trim())
+                    .snippet("Vehicle Number - " + busInfo.getVehicleNumber() + "\n"
+                            + "TripNumber - " + busInfo.getTripId() + "\n"
+                            + "Next Stop - " + busInfo.getNextStop() + "\n"
+                            + " At " + busInfo.getNextStopScheduleTime().toString())
+                    .icon(BitmapDescriptorFactory.fromResource(id)));
+            marker.setTag(busInfo);
+            mMarkerMap.put(busInfo.getVehicleNumber(), marker);
+
+
+        } else {
+            marker = mMarkerMap.get(busInfo.getVehicleNumber());
+            marker.setTitle(busInfo.getBusShortName().trim());
+            marker.setSnippet("Vehicle Number - " + busInfo.getVehicleNumber() + "\n"
+                    + "TripNumber - " + busInfo.getTripId() + "\n"
+                    + "Next Stop - " + busInfo.getNextStop() + "\n"
+                    + " At " + busInfo.getNextStopScheduleTime().toString());
+            marker.setIcon(BitmapDescriptorFactory.fromResource(id));
+            MarkerAnimation.animateMarkerToICS(marker, markerLatLng, new LatLngInterpolator.Spherical());
+            marker.setTag(busInfo);
+
+
+        }
+        return marker;
+    }
+
+    private void changeGetDataFromJsonToXML(final Map<String, String> tempBusNumberToVehicleNumberMap) {
+//        final Map<String,String> tempMap = new HashMap<>();
+        final ArrayList<String> busNumberArrayList = new ArrayList<>();
+        final ArrayList<String> vehicleNumberArrayList = new ArrayList<>();
+        Iterator<Map.Entry<String, String>> iterator = tempBusNumberToVehicleNumberMap.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<String, String> pair = iterator.next();
+            busNumberArrayList.add(pair.getKey());
+            vehicleNumberArrayList.add(pair.getValue());
+            iterator.remove();
+        }
+
+
+//        tempMap.putAll(tempBusNumberToVehicleNumberMap);
+        if (timer != null) {
+            timer.cancel();
+        }
+
+        timer = new Timer();
+        timer.scheduleAtFixedRate(new TimerTask() {
+            public void run() {
+                Log.d("bNuToVNuMap", String.valueOf(busNumberArrayList.size()));
+                boolean anyRouteStillRunning = false;
+                for (int i = 0; i < busNumberArrayList.size(); i++) {
+                    SharedPreferences pref = getApplicationContext().getSharedPreferences(Constants.SHARED_PREFERENCE_KEY, MODE_PRIVATE);
+                    if (pref.getString(busNumberArrayList.get(i), null) != null) {
+                        getLocationAndUpdateBus(busNumberArrayList.get(i), vehicleNumberArrayList.get(i));
+                        anyRouteStillRunning = true;
+                    }
+
+                    if (!anyRouteStillRunning) {
+                        if (timer != null) {
+                            timer.cancel();
+                            timer = null;
+                        }
+
+
+                    }
+
+                }
+
+
+//                Iterator<Map.Entry<String, String>> iterator = tempMap.entrySet().iterator();
+//                while (iterator.hasNext()) {
+//                    Map.Entry<String, String> pair = iterator.next();
+//                    //Marker marker = pair.getValue();
+//                    BusInfo busInfo = mVehicleNumberToBusInfoMap.get(pair.getKey());
+//                    getLocationAndUpdateBus(pair.getKey(),pair.getValue());
+//                    iterator.remove();
+//                }
+            }
+        }, delay, period);
+
+
+    }
+
+    private void getLocationAndUpdateBus(String busNo, final String vehicleNo) {
+
+
+        ApiCaller apiCaller = new ApiCaller();
+        apiCaller.setAfterApiCallResponse(new ApiCaller.AfterApiCallResponse() {
+            @Override
+            public void successResponse(String response, String url) {
+
+                XMLPullParserHandler parserHandler = new XMLPullParserHandler();
+                List<BusInfo> busInfoArrayList = parserHandler.parseSingleRouteKml(response);
+
+                for (BusInfo busInfoFromArray :
+                        busInfoArrayList) {
+
+                    if (busInfoFromArray.getVehicleNumber().equalsIgnoreCase(vehicleNo)) {
+                        Marker marker = mMarkerMap.get(vehicleNo);
+                        BusInfo busInfo = (BusInfo) marker.getTag();
+                        KmlUtils.updateOldBusInfoWithNewBusInfoDetails(busInfo, busInfoFromArray, vehicleNumberToTripDetailsMap);
+                        Marker marker1 = addOrUpdateMarker(busInfo);
+                        mDestinationRouteDirectionsFragment.updateDelayTime(busInfo);
+                        checkIfBusReachedDestination(busInfo, marker1);
+                    }
+
+
+                }
+                //  busRoute.getIndividualBusSteps().setBusInfoList(parserHandler.parseSingleRouteKml(response));
+//                //getAllTripDetails(busRoute);
+//                for (BusInfo busInfo :
+//                        busInfoArrayList) {
+//                    if (vehicleNumberToTripDetailsMap.containsKey(busInfo.getVehicleNumber()))
+//                        addOrUpdateMarker(busInfo);
+//
+//                }
+                Log.d("MAIN Class data", response);
+            }
+
+            @Override
+            public void errorResponse(VolleyError error, String url) {
+
+            }
+
+
+        });
+        apiCaller.makeStringRequest(MainActivity.this, Request.Method.GET,
+                String.format(Constants.GET_ROUTE_URL,
+                        busNo), null);
+    }
+
+    private void checkIfBusReachedDestination(BusInfo busInfo, Marker marker1) {
+        SharedPreferences pref = getApplicationContext().getSharedPreferences(Constants.SHARED_PREFERENCE_KEY, MODE_PRIVATE);
+        String destinationName = pref.getString(busInfo.getBusShortName(), null);
+
+        for (BusInfo.StopDetails stopDetails :
+                busInfo.getListOfTripStopDetails()) {
+            if (stopDetails.getStopName().equalsIgnoreCase(destinationName)) {
+
+                Date DestinationTime = addCurrentDateToTime(stopDetails.getStopTime());
+                if (busInfo.getNextStopScheduleTime().after(DestinationTime)) {
+
+                    SharedPreferences.Editor editor = pref.edit();
+                    Log.d("ABC", "Destination Stop removed - " + destinationName);
+                    editor.remove(busInfo.getBusShortName());  // Saving string
+
+                    // Save the changes in SharedPreferences
+                    editor.apply();
+                    marker1.remove();
+
+                }
+
+                break;
+            }
+        }
+
+
     }
 
 
@@ -763,6 +904,7 @@ public class MainActivity extends AppCompatActivity
                         Iterator<Map.Entry<String, HashMap<String, HashMap<String, String>>>> it = mapofBusNumberAndTripDetails.entrySet().iterator();
 
                         String finalTrip = "";
+                        HashMap<String, HashMap<String, String>> finalTripDetails = new HashMap<>();
                         while (it.hasNext()) {
                             Map.Entry<String, HashMap<String, HashMap<String, String>>> pair = it.next();
                             //Log.d("tripss", pair.getKey() + " = " + pair.getValue());
@@ -773,6 +915,7 @@ public class MainActivity extends AppCompatActivity
                                 String stopName = busMap.get("stop_name");
                                 if (stopName.equalsIgnoreCase(departStationName)) {
                                     finalTrip = pair.getKey();
+                                    finalTripDetails = singleBusTripDetailsHashMap;
                                     break;
                                 }
 
@@ -786,6 +929,17 @@ public class MainActivity extends AppCompatActivity
                                 busInfoList) {
                             if (busInfo.getTripId().equalsIgnoreCase(finalTrip)) {
                                 busNumberToVehicleNumberMap.put(busRoute.getIndividualBusSteps().getBusShortName(), busInfo.getVehicleNumber());
+                                vehicleNumberToTripDetailsMap.put(busInfo.getVehicleNumber(), finalTripDetails);
+                                vehicleNumberToTripNumberMap.put(busInfo.getVehicleNumber(), finalTrip);
+                                SharedPreferences pref = getApplicationContext().getSharedPreferences(Constants.SHARED_PREFERENCE_KEY, MODE_PRIVATE);
+                                SharedPreferences.Editor editor = pref.edit();
+                                Log.d("ABC", "Destination Stop - " + busRoute.getIndividualBusSteps().getDepartureStopName());
+                                editor.putString(busRoute.getIndividualBusSteps().getBusShortName(), busRoute.getIndividualBusSteps().getDepartureStopName());  // Saving string
+
+                                // Save the changes in SharedPreferences
+                                editor.apply(); // commit changes
+
+
                             }
                         }
 
@@ -842,76 +996,6 @@ public class MainActivity extends AppCompatActivity
                 }
                 Log.d("MAIN Class data", response);
             }
-
-            private void getAllTripDetails(final BusRoute busRoute) {
-
-                final DatabaseReference database = FirebaseDatabase.getInstance().getReference();
-                Query query = database.child("busNumber-with-trips1").child(busRoute.getIndividualBusSteps().getBusShortName().trim());
-                long arrivalTime = busRoute.getIndividualBusSteps().getArrivalTime();
-                long departTime = busRoute.getIndividualBusSteps().getDepartureTime();
-                Date date = new Date(departTime * 1000);
-
-                Log.d("departTime", date.toString());
-
-                DateFormat df = new SimpleDateFormat("HH:mm:ss");
-                df.setTimeZone(TimeZone.getTimeZone("MST"));
-                final String departTimeString = df.format(date);
-                Log.d("departTime", busRoute.getIndividualBusSteps().getBusShortName() + "-" + departTimeString);
-
-                query.addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(DataSnapshot dataSnapshot) {
-
-                        Map<String, ArrayList<HashMap<String, String>>> mapofBusNumberAndTripDetails = (Map<String, ArrayList<HashMap<String, String>>>) dataSnapshot.getValue();
-
-                        Log.d("tripss", String.valueOf(mapofBusNumberAndTripDetails.size()));
-
-                        Iterator<Map.Entry<String, ArrayList<HashMap<String, String>>>> it = mapofBusNumberAndTripDetails.entrySet().iterator();
-
-                        String finalTrip = "";
-                        while (it.hasNext()) {
-                            Map.Entry<String, ArrayList<HashMap<String, String>>> pair = it.next();
-                            //Log.d("tripss", pair.getKey() + " = " + pair.getValue());
-                            ArrayList<HashMap<String, String>> singleBusTripDetailsArrayList = pair.getValue();
-
-                            for (HashMap<String, String> eachBusTripStopsDetails :
-                                    singleBusTripDetailsArrayList) {
-
-                                if (eachBusTripStopsDetails.get("departTime").equalsIgnoreCase(departTimeString)) {
-                                    finalTrip = pair.getKey();
-                                    break;
-                                }
-                            }
-                            it.remove(); // avoids a ConcurrentModificationException
-                        }
-
-                        Log.d("finalTrip", finalTrip);
-                        ArrayList<HashMap<String, String>> finalBusTripDetailsArrayList = mapofBusNumberAndTripDetails.get(finalTrip);
-                        if (busRoute.getIndividualBusSteps().getBusInfoList().size() > 0)
-                            Log.d("finalTrip", busRoute.getIndividualBusSteps().getBusInfoList().get(0).getNextStop());
-
-                        for (BusInfo busInfo :
-                                busRoute.getIndividualBusSteps().getBusInfoList()) {
-
-                            // String stopCode = mBusStopNameToStopCodeMap.get(busInfo.getNextStop());
-                            for (HashMap<String, String> eachBusDetails :
-                                    finalBusTripDetailsArrayList) {
-//                                if(busInfo.)
-
-
-                            }
-                        }
-
-
-                    }
-
-                    @Override
-                    public void onCancelled(DatabaseError databaseError) {
-
-                    }
-                });
-            }
-
 
             @Override
             public void errorResponse(VolleyError error, String url) {
@@ -1077,6 +1161,7 @@ public class MainActivity extends AppCompatActivity
             //                                          int[] grantResults)
             // to handle the case where the user grants the permission. See the documentation
             // for ActivityCompat#requestPermissions for more details.
+            requestForLocationPermission();
             return;
         }
         mMap.setMyLocationEnabled(true);
@@ -1097,7 +1182,7 @@ public class MainActivity extends AppCompatActivity
     @Override
     public void showDirections() {
 
-        if (currentDirectionsTransitModel != null) {
+        if (currentDirectionsTransitModel != null && mDirectionsFragment == null) {
             //this is code for fragment
             mDirectionsFragment = new DirectionsFragment();
             fragment = mDirectionsFragment;
@@ -1142,6 +1227,13 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
+    @Override
+    public void loadFragmentElements() {
+        if (currentDirectionsTransitModel != null && mDestinationRouteDirectionsFragment != null) {
+            mDestinationRouteDirectionsFragment.updateDestinationDetails(currentDirectionsTransitModel);
+        }
+    }
+
 
     public void mapInitialize() {
         final Context mContext = this;
@@ -1179,12 +1271,14 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public void closeTheDirectionFragment() {
+        mDestinationRouteDirectionsFragment.resetColorOfDirectionFab();
         if (getSupportFragmentManager().findFragmentById(R.id.directions_frame_container) != null) {
             FragmentTransaction fragmentTransaction = getSupportFragmentManager().beginTransaction();
             fragmentTransaction.setCustomAnimations(R.anim.activity_animation_push_down_in, R.anim.activity_animation_push_up_out);
 
 
             fragmentTransaction.remove(getSupportFragmentManager().findFragmentById(R.id.directions_frame_container)).commit();
+            mDirectionsFragment = null;
         }
 
 
@@ -1203,5 +1297,79 @@ public class MainActivity extends AppCompatActivity
         if (timer != null) {
             timer.cancel();
         }
+        if (timer1 != null) {
+            timer1.cancel();
+        }
     }
+
+    private void getAllTripDetails(final BusRoute busRoute) {
+
+        final DatabaseReference database = FirebaseDatabase.getInstance().getReference();
+        Query query = database.child("busNumber-with-trips1").child(busRoute.getIndividualBusSteps().getBusShortName().trim());
+        long arrivalTime = busRoute.getIndividualBusSteps().getArrivalTime();
+        long departTime = busRoute.getIndividualBusSteps().getDepartureTime();
+        Date date = new Date(departTime * 1000);
+
+        Log.d("departTime", date.toString());
+
+        DateFormat df = new SimpleDateFormat("HH:mm:ss");
+        df.setTimeZone(TimeZone.getTimeZone("MST"));
+        final String departTimeString = df.format(date);
+        Log.d("departTime", busRoute.getIndividualBusSteps().getBusShortName() + "-" + departTimeString);
+
+        query.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+
+                Map<String, ArrayList<HashMap<String, String>>> mapofBusNumberAndTripDetails = (Map<String, ArrayList<HashMap<String, String>>>) dataSnapshot.getValue();
+
+                Log.d("tripss", String.valueOf(mapofBusNumberAndTripDetails.size()));
+
+                Iterator<Map.Entry<String, ArrayList<HashMap<String, String>>>> it = mapofBusNumberAndTripDetails.entrySet().iterator();
+
+                String finalTrip = "";
+                while (it.hasNext()) {
+                    Map.Entry<String, ArrayList<HashMap<String, String>>> pair = it.next();
+                    //Log.d("tripss", pair.getKey() + " = " + pair.getValue());
+                    ArrayList<HashMap<String, String>> singleBusTripDetailsArrayList = pair.getValue();
+
+                    for (HashMap<String, String> eachBusTripStopsDetails :
+                            singleBusTripDetailsArrayList) {
+
+                        if (eachBusTripStopsDetails.get("departTime").equalsIgnoreCase(departTimeString)) {
+                            finalTrip = pair.getKey();
+                            break;
+                        }
+                    }
+                    it.remove(); // avoids a ConcurrentModificationException
+                }
+
+                Log.d("finalTrip", finalTrip);
+                ArrayList<HashMap<String, String>> finalBusTripDetailsArrayList = mapofBusNumberAndTripDetails.get(finalTrip);
+                if (busRoute.getIndividualBusSteps().getBusInfoList().size() > 0)
+                    Log.d("finalTrip", busRoute.getIndividualBusSteps().getBusInfoList().get(0).getNextStop());
+
+                for (BusInfo busInfo :
+                        busRoute.getIndividualBusSteps().getBusInfoList()) {
+
+                    // String stopCode = mBusStopNameToStopCodeMap.get(busInfo.getNextStop());
+                    for (HashMap<String, String> eachBusDetails :
+                            finalBusTripDetailsArrayList) {
+//                                if(busInfo.)
+
+
+                    }
+                }
+
+
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+
+            }
+        });
+    }
+
+
 }

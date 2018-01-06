@@ -67,4 +67,5 @@ public class Constants {
 
     public static final String TRANSIT = "TRANSIT";
     public static final String NO_BUSES_IN_THIS_ROUTE = "There are no buses available for this route.";
+    public static final String SHARED_PREFERENCE_KEY = "MyPref";
 }

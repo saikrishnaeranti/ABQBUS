@@ -1,6 +1,9 @@
 package edu.unm.albuquerquebus.live.model;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
 
 /**
  * Created by saikrishna on 11/22/17.
@@ -25,6 +28,10 @@ public class BusInfo {
     private String busShortName;
 
     private String busColor;
+
+    private HashMap<String, HashMap<String, String>> tripDetailsMap = new HashMap<>();
+
+    private List<StopDetails> listOfTripStopDetails = new ArrayList<>();
 
     public BusInfo() {
     }
@@ -159,5 +166,58 @@ public class BusInfo {
 
     public void setBusColor(String busColor) {
         this.busColor = busColor;
+    }
+
+    public HashMap<String, HashMap<String, String>> getTripDetailsMap() {
+        return tripDetailsMap;
+    }
+
+    public void setTripDetailsMap(HashMap<String, HashMap<String, String>> tripDetailsMap) {
+        this.tripDetailsMap = tripDetailsMap;
+    }
+
+    public List<StopDetails> getListOfTripStopDetails() {
+        return listOfTripStopDetails;
+    }
+
+    public void setListOfTripStopDetails(List<StopDetails> listOfTripStopDetails) {
+        this.listOfTripStopDetails = listOfTripStopDetails;
+    }
+
+    public static class StopDetails {
+
+        String stopId;
+        String stopName;
+        String stopTime;
+
+        public StopDetails(String stopId, String stopName, String stopTime) {
+            this.stopId = stopId;
+            this.stopName = stopName;
+            this.stopTime = stopTime;
+        }
+
+        public String getStopId() {
+            return stopId;
+        }
+
+        public void setStopId(String stopId) {
+            this.stopId = stopId;
+        }
+
+        public String getStopName() {
+            return stopName;
+        }
+
+        public void setStopName(String stopName) {
+            this.stopName = stopName;
+        }
+
+        public String getStopTime() {
+            return stopTime;
+        }
+
+        public void setStopTime(String stopTime) {
+            this.stopTime = stopTime;
+        }
     }
 }

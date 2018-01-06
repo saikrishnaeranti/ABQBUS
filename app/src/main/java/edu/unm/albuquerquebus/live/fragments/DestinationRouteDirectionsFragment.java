@@ -5,6 +5,7 @@ import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.Fragment;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -12,12 +13,17 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 import edu.unm.albuquerquebus.live.R;
 import edu.unm.albuquerquebus.live.interfaces.RouteInfo;
+import edu.unm.albuquerquebus.live.model.BusInfo;
 import edu.unm.albuquerquebus.live.model.BusRoute;
 import edu.unm.albuquerquebus.live.model.DirectionsTransitModel;
 import edu.unm.albuquerquebus.live.model.WalkingRoute;
+import edu.unm.albuquerquebus.live.utils.KmlUtils;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -42,6 +48,11 @@ public class DestinationRouteDirectionsFragment extends Fragment {
     private LinearLayout mBusLinearLayout;
     private TextView mWalkTimeTextView;
     private TextView mBicycleTimeTextView;
+
+    private Map<String, TextView> mMapOfBusNumberToExtraTimeTextView = new HashMap<>();
+    private FloatingActionButton directionsFabButton;
+    private TextView mArriveAtTextView;
+    private TextView mDepartAtTextView;
 
     public DestinationRouteDirectionsFragment() {
         // Required empty public constructor
@@ -90,29 +101,26 @@ public class DestinationRouteDirectionsFragment extends Fragment {
 
         mBicycleTimeTextView = view.findViewById(R.id.bicycle_time);
 
+        mDepartAtTextView = view.findViewById(R.id.depart_at);
+        mArriveAtTextView = view.findViewById(R.id.arrive_at);
+
         final FloatingActionButton bicycleFabButton = view.findViewById(R.id.bike_fab);
 
 
         final FloatingActionButton walkFabButton = view.findViewById(R.id.walk_fab);
         final FloatingActionButton closeFabButton = view.findViewById(R.id.close_fab);
-        closeFabButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (mListener != null) {
-                    mListener.closeTripDetailsFragment();
-                }
-            }
-        });
 
 
-        walkFabButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.colorPrimary)));
+        walkFabButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.littleBlue)));
 
-        FloatingActionButton directionsFabButton = view.findViewById(R.id.direction_fab);
+        directionsFabButton = view.findViewById(R.id.direction_fab);
         directionsFabButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 if (mListener != null) {
                     mListener.showDirections();
+                    directionsFabButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.littleBlue)));
+
                 }
             }
         });
@@ -120,7 +128,7 @@ public class DestinationRouteDirectionsFragment extends Fragment {
             @Override
             public void onClick(View v) {
                 if (mListener != null) {
-                    bicycleFabButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.colorPrimary)));
+                    bicycleFabButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.littleBlue)));
                     walkFabButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.white)));
                     mListener.showBicyclePolyLines();
                 }
@@ -131,8 +139,17 @@ public class DestinationRouteDirectionsFragment extends Fragment {
             public void onClick(View v) {
                 if (mListener != null) {
                     bicycleFabButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.white)));
-                    walkFabButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.colorPrimary)));
+                    walkFabButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.littleBlue)));
                     mListener.showWalkPolyLines();
+                }
+            }
+        });
+        closeFabButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (mListener != null) {
+                    mListener.closeTripDetailsFragment();
+                    directionsFabButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.white)));
                 }
             }
         });
@@ -140,7 +157,13 @@ public class DestinationRouteDirectionsFragment extends Fragment {
 
     }
 
-
+    @Override
+    public void onStart() {
+        super.onStart();
+        if (mListener != null) {
+            mListener.loadFragmentElements();
+        }
+    }
 
     @Override
     public void onAttach(Context context) {
@@ -162,6 +185,8 @@ public class DestinationRouteDirectionsFragment extends Fragment {
 
     public void updateDestinationDetails(DirectionsTransitModel directionsTransitModel) {
 
+        mDepartAtTextView.setText(KmlUtils.convertLongtoDateString(directionsTransitModel.getDepartTime()));
+        mArriveAtTextView.setText(KmlUtils.convertLongtoDateString(directionsTransitModel.getArrivalTime()));
         mDestinationTextView.setText(directionsTransitModel.getEndAddress());
         addBusesInLayout(directionsTransitModel);
         addWalkingDistanceToBusStopInLayout(directionsTransitModel);
@@ -210,8 +235,11 @@ public class DestinationRouteDirectionsFragment extends Fragment {
                 View view = inflater.inflate(R.layout.each_bus_layout, null);
                 TextView busNoTextView = view.findViewById(R.id.bus_no);
                 TextView busTimingTextView = view.findViewById(R.id.bus_timing);
+                TextView busExtraTimingTextView = view.findViewById(R.id.bus_extra_time);
                 busNoTextView.setText(busRoute.getIndividualBusSteps().getBusShortName());
                 busTimingTextView.setText(busRoute.getIndividualBusSteps().getDepartureTimeString());
+                busExtraTimingTextView.setVisibility(View.GONE);
+                mMapOfBusNumberToExtraTimeTextView.put(busRoute.getIndividualBusSteps().getBusShortName(), busExtraTimingTextView);
                 mBusLinearLayout.addView(view);
                 if (busesAdded < directionsTransitModel.getTotalNumberOfBuses()) {
                     View arrowView = inflater.inflate(R.layout.bus_to_bus_layout, null);
@@ -222,6 +250,34 @@ public class DestinationRouteDirectionsFragment extends Fragment {
             }
         }
 
+    }
+
+    public void updateDelayTime(BusInfo busInfo) {
+
+        if (mMapOfBusNumberToExtraTimeTextView.containsKey(busInfo.getBusShortName())) {
+            TextView busExtraTimingTextView = mMapOfBusNumberToExtraTimeTextView.get(busInfo.getBusShortName());
+            Date currentTime = new Date();
+            Date scheduledTime = busInfo.getNextStopScheduleTime();
+
+            long diff = currentTime.getTime() - scheduledTime.getTime();
+            if (diff > 0) {
+                long diffSeconds = diff / 1000 % 60;
+                long diffMinutes = diff / (60 * 1000) % 60;
+                if (diffMinutes > 0) {
+                    busExtraTimingTextView.setText("(+" + diffMinutes + ")");
+                    busExtraTimingTextView.setVisibility(View.VISIBLE);
+                    Log.d("DifferenceTime", String.valueOf(diffMinutes));
+                } else {
+                    busExtraTimingTextView.setVisibility(View.GONE);
+                }
+            }
+
+
+        }
+    }
+
+    public void resetColorOfDirectionFab() {
+        directionsFabButton.setBackgroundTintList(ColorStateList.valueOf(getResources().getColor(R.color.white)));
     }
 
     /**
@@ -243,5 +299,7 @@ public class DestinationRouteDirectionsFragment extends Fragment {
         void showWalkPolyLines();
 
         void closeTripDetailsFragment();
+
+        void loadFragmentElements();
     }
 }

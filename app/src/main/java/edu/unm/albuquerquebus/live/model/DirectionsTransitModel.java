@@ -26,6 +26,7 @@ public class DirectionsTransitModel {
     // Short Details of the route
     private long arrivalTime;
     private long departTime;
+
     // distance is in meters
     private long distance;
     //duration of route

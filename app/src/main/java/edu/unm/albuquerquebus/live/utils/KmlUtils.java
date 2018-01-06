@@ -19,6 +19,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -28,6 +29,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 
 import edu.unm.albuquerquebus.live.model.BusInfo;
 import edu.unm.albuquerquebus.live.model.BusRoute;
@@ -435,6 +437,109 @@ public class KmlUtils {
             }
         }
 
+    }
+
+    public static void updateOldBusInfoWithNewBusInfoDetails(BusInfo oldBusInfo, BusInfo newBusInfo, Map<String, HashMap<String, HashMap<String, String>>> vehicleNumberToTripDetailsMap) {
+
+        oldBusInfo.setSpeedInMPH(newBusInfo.getSpeedInMPH());
+        String[] nextStopListStrings = newBusInfo.getNextStop().split("@");
+        String nextStop = nextStopListStrings[0] + "@" + nextStopListStrings[1];
+        oldBusInfo.setNextStop(nextStop.trim());
+        getStopIDAndStopTimeFromMap(vehicleNumberToTripDetailsMap, oldBusInfo);
+        oldBusInfo.setLatitude(newBusInfo.getLatitude());
+        oldBusInfo.setLongitude(newBusInfo.getLongitude());
+
+        oldBusInfo.setMsgDateTime(newBusInfo.getMsgDateTime());
+
+        oldBusInfo.setDirection(newBusInfo.getDirection());
+        oldBusInfo.setScale(newBusInfo.getScale());
+
+
+    }
+
+    private static void getStopIDAndStopTimeFromMap(Map<String, HashMap<String, HashMap<String, String>>> vehicleNumberToTripDetailsMap, BusInfo oldBusInfo) {
+//        HashMap<String, HashMap<String, String>> abc = vehicleNumberToTripDetailsMap.get(oldBusInfo.getVehicleNumber());
+        HashMap<String, HashMap<String, String>> abc = oldBusInfo.getTripDetailsMap();
+        Log.d("ABC", "ABC-" + abc.size());
+        Log.d("ABC", "List-" + oldBusInfo.getListOfTripStopDetails().size());
+
+        for (BusInfo.StopDetails stopDetails :
+                oldBusInfo.getListOfTripStopDetails()) {
+            if (stopDetails.getStopName().equalsIgnoreCase(oldBusInfo.getNextStop())) {
+                oldBusInfo.setNextStopId(stopDetails.getStopId());
+                oldBusInfo.setNextStopScheduleTime(addCurrentDateToTime(stopDetails.getStopTime()));
+                break;
+            }
+        }
+
+//        if (abc == null) {
+//            Log.d("ABC", "NUll object");
+//        }
+//        Iterator<Map.Entry<String, HashMap<String, String>>> iterator = abc.entrySet().iterator();
+//
+//        while (iterator.hasNext()) {
+//            Map.Entry<String, HashMap<String, String>> pair = iterator.next();
+//            HashMap<String, String> hashMapOfEachStopDetails = pair.getValue();
+//
+//            if (hashMapOfEachStopDetails.get(Constants.STOP_NAME).equalsIgnoreCase(oldBusInfo.getNextStop())) {
+//                oldBusInfo.setNextStopId(hashMapOfEachStopDetails.get(Constants.STOP_ID));
+//                oldBusInfo.setNextStopScheduleTime(addCurrentDateToTime(hashMapOfEachStopDetails.get(Constants.STOP_TIME)));
+//                break;
+//
+//            }
+//
+//            iterator.remove();
+//        }
+
+
+    }
+
+    public static Date addCurrentDateToTime(String stopTime) {
+        try {
+            Date currentTime = new Date();
+            SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd");
+            String currentdate = DATE_FORMAT.format(currentTime);
+
+            Date startTimeDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(currentdate + " " + stopTime);
+            return startTimeDate;
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public static void convertMapIntoArrayOfObjects(BusInfo busInfo, HashMap<String, HashMap<String, String>> finalTripDetails) {
+
+        Iterator<Map.Entry<String, HashMap<String, String>>> iterator = finalTripDetails.entrySet().iterator();
+        List<BusInfo.StopDetails> stopDetailsList = new ArrayList<>();
+
+        while (iterator.hasNext()) {
+
+            Map.Entry<String, HashMap<String, String>> pair = iterator.next();
+            //Log.d("tripss", pair.getKey() + " = " + pair.getValue());
+            HashMap<String, String> eachTripDetailMap = pair.getValue();
+
+            stopDetailsList.add(
+                    new BusInfo.StopDetails(
+                            eachTripDetailMap.get(Constants.STOP_ID),
+                            eachTripDetailMap.get(Constants.STOP_NAME),
+                            eachTripDetailMap.get(Constants.STOP_TIME)));
+
+            iterator.remove();
+        }
+        busInfo.setListOfTripStopDetails(stopDetailsList);
+    }
+
+    public static String convertLongtoDateString(long departTime) {
+
+        Date date = new Date(departTime * 1000);
+        Log.d("departTime", date.toString());
+
+        DateFormat df = new SimpleDateFormat("HH:mm a");
+        df.setTimeZone(TimeZone.getTimeZone("MST"));
+        String departTimeString = df.format(date).trim();
+        Log.d("departTime", departTimeString);
+        return departTimeString;
     }
 
     public static class BusTripDetails {

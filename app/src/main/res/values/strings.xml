@@ -18,4 +18,8 @@
     <string name="sample_bus_number">66</string>
     <string name="sample_time">6:59pm</string>
     <string name="close">Close</string>
+    <string name="sample_extra_time">(+2)</string>
+    <string name="depart">Depart : </string>
+    <string name="arrive">Arrive : </string>
+    <string name="trip_completed">Trip Completed</string>
 </resources>
